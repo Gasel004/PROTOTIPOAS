@@ -1,0 +1,256 @@
+====================================================================
+  SISTEMA LA ESPERANZA - GUIA DE INSTALACION
+  Plataforma de Gestion Agricola
+====================================================================
+
+Repositorio: https://github.com/Gasel004/claudio
+
+
+====================================================================
+  1. REQUISITOS DE SOFTWARE
+====================================================================
+
+  --- OBLIGATORIOS (ambos metodos) ---
+
+  Git
+    - Windows: https://git-scm.com/download/win
+    - Ubuntu:  sudo apt install git
+
+  --- OPCION A: CON DOCKER (recomendada) ---
+
+  Docker Desktop
+    - Windows: https://www.docker.com/products/docker-desktop/
+               (Requiere WSL2 - Docker Desktop lo configura solo)
+    - Ubuntu:
+        sudo apt update
+        sudo apt install docker.io docker-compose-v2
+        sudo systemctl enable --now docker
+        sudo usermod -aG docker $USER   # cerrar sesion y volver a entrar
+
+  --- OPCION B: SIN DOCKER (desarrollo local) ---
+
+  Node.js 20 LTS
+    - Windows: https://nodejs.org/ (descargar v20 LTS)
+    - Ubuntu:
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt install -y nodejs
+
+  PostgreSQL 16
+    - Windows: https://www.postgresql.org/download/windows/
+               (Recordar el password del usuario postgres)
+    - Ubuntu:
+        sudo apt install postgresql postgresql-client
+        sudo systemctl enable --now postgresql
+        sudo -u postgres psql -c "CREATE USER admin WITH PASSWORD '1234!';"
+        sudo -u postgres psql -c "CREATE DATABASE laesperanza_db OWNER admin;"
+
+
+====================================================================
+  2. CLONAR EL REPOSITORIO
+====================================================================
+
+  Abrir una terminal (PowerShell en Windows, bash en Ubuntu):
+
+      git clone https://github.com/Gasel004/claudio.git
+      cd claudio
+
+  Dentro de la carpeta "claudio" estaran todos los archivos del proyecto.
+
+
+====================================================================
+  3. OPCION A - LEVANTAR CON DOCKER
+====================================================================
+
+  3.1. Configurar variables de entorno
+  ------------------------------------
+
+  Copiar el archivo de ejemplo:
+
+    Windows (PowerShell):   copy .env.example .env
+    Ubuntu:                 cp .env.example .env
+
+  Los valores por defecto ya funcionan, pero se pueden editar si se desea:
+    - POSTGRES_PASSWORD: password de la base de datos
+    - JWT_SECRET: clave secreta para tokens (minimo 32 caracteres)
+
+  3.2. Levantar los servicios
+  ---------------------------
+
+      docker compose up --build -d
+
+  Esto construye e inicia tres contenedores:
+    - db:         PostgreSQL 16
+    - backend:    Node.js + Express (puerto 3000)
+    - frontend:   Nginx sirviendo React (puerto 80)
+
+  Para ver los logs en vivo:
+
+      docker compose logs -f
+
+  3.3. Aplicar migraciones y datos iniciales
+  ------------------------------------------
+
+      docker compose exec backend npx prisma migrate deploy
+      docker compose exec backend npx prisma db seed
+
+  3.4. Acceder al sistema
+  -----------------------
+
+    Frontend:  http://localhost
+    API:       http://localhost:3000/api/v1
+
+  3.5. Comandos utiles de Docker
+  ------------------------------
+
+    Detener servicios:         docker compose down
+    Detener y borrar datos:    docker compose down -v
+    Ver contenedores activos:  docker ps
+    Ver logs del backend:      docker compose logs backend -f
+
+
+====================================================================
+  4. OPCION B - LEVANTAR SIN DOCKER (desarrollo local)
+====================================================================
+
+  4.1. Configurar PostgreSQL
+  --------------------------
+
+  Asegurarse de que PostgreSQL este corriendo:
+
+    Windows: buscar "Services" en Inicio, localizar PostgreSQL y
+             verificar que este "Running". Si no, hacer clic derecho
+             y "Start".
+
+    Ubuntu:  sudo systemctl status postgresql
+             (Si no aparece "active (running)":
+              sudo systemctl start postgresql)
+
+  Crear la base de datos (si no se creo antes):
+
+    Windows (abrir SQL Shell o pgAdmin):
+        CREATE USER admin WITH PASSWORD '1234!';
+        CREATE DATABASE laesperanza_db OWNER admin;
+
+    Ubuntu:
+        sudo -u postgres psql -c "CREATE USER admin WITH PASSWORD '1234!';"
+        sudo -u postgres psql -c "CREATE DATABASE laesperanza_db OWNER admin;"
+
+  4.2. Backend
+  ------------
+
+  a) Ir a la carpeta del backend:
+
+       cd backend
+
+  b) Instalar dependencias:
+
+       npm install
+
+  c) Copiar y editar archivo .env:
+
+       Windows: copy ..\.env.example .env
+       Ubuntu:  cp ../.env.example .env
+
+     ABRIR el archivo .env en un editor y CAMBIAR la linea:
+
+       DATABASE_URL=postgresql://admin:1234!@db:5432/laesperanza_db
+
+     por:
+
+       Windows: DATABASE_URL=postgresql://admin:1234!@localhost:5432/laesperanza_db
+       Ubuntu:  DATABASE_URL=postgresql://admin:1234!@localhost:5432/laesperanza_db
+
+     (Si el usuario/contraseña de PostgreSQL es distinto, cambiarlo
+      en la URL y en las lineas POSTGRES_USER / POSTGRES_PASSWORD)
+
+  d) Ejecutar migraciones de la base de datos:
+
+       npx prisma migrate dev --name init
+
+  e) Cargar datos de prueba:
+
+       npx prisma db seed
+
+  f) Iniciar el servidor:
+
+       npm run dev
+
+     El backend quedara corriendo en: http://localhost:3000
+
+  4.3. Frontend (abrir otra terminal aparte)
+  ------------------------------------------
+
+  a) Ir a la carpeta del frontend:
+
+       cd frontend
+
+  b) Instalar dependencias:
+
+       npm install
+
+  c) Configurar la URL de la API:
+
+       Windows (PowerShell):
+           $env:VITE_API_URL="http://localhost:3000/api/v1"
+
+       Windows (CMD):
+           set VITE_API_URL=http://localhost:3000/api/v1
+
+       Ubuntu:
+           export VITE_API_URL=http://localhost:3000/api/v1
+
+     O crear un archivo .env.local:
+
+       Windows:  echo VITE_API_URL=http://localhost:3000/api/v1 > .env.local
+       Ubuntu:   echo 'VITE_API_URL=http://localhost:3000/api/v1' > .env.local
+
+  d) Iniciar el servidor de desarrollo:
+
+       npm run dev
+
+     El frontend quedara corriendo en: http://localhost:5173
+
+
+====================================================================
+  5. VERIFICAR QUE TODO FUNCIONA
+====================================================================
+
+  - Abrir http://localhost:5173 (desarrollo) o http://localhost (Docker)
+  - deberia verse la pagina de inicio de La Esperanza.
+  - Probar crear un usuario o iniciar sesion.
+  - La API responde en http://localhost:3000/api/v1
+
+
+====================================================================
+  6. SOLUCION DE PROBLEMAS COMUNES
+====================================================================
+
+  --- "docker: command not found" ---
+    Docker no esta instalado o no esta en el PATH.
+    Usar la Opcion B (sin Docker) o instalar Docker correctamente.
+
+  --- "port is already allocated" ---
+    Otro programa esta usando el puerto 80 o 3000.
+    En Docker: cambiar los puertos en docker-compose.yml
+    (ej: "8080:80" en lugar de "80:80").
+    Sin Docker: cerrar el programa que usa el puerto o cambiar el PORT
+    en el .env.
+
+  --- "ECONNREFUSED db:5432" (Docker) ---
+    La base de datos tarda en iniciar. Esperar unos segundos y
+    ejecutar de nuevo: docker compose up -d
+
+  --- "Cannot find module @prisma/client" ---
+    Ejecutar: npm install  y luego  npx prisma generate
+
+  --- "relation ... does not exist" ---
+    Faltan las migraciones. Ejecutar:
+      npx prisma migrate dev --name init
+
+  --- "Self-signed certificate" / "SSL" ---
+    Agregar al .env en DATABASE_URL:
+      ?sslmode=require
+    O usar:
+      DATABASE_URL=postgresql://admin:1234!@localhost:5432/laesperanza_db?sslmode=disable
+
+====================================================================
