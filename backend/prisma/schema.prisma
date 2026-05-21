@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(100)
+  telefono      String    @unique @db.VarChar(20)
+  password_hash String    @db.VarChar(255)
+  rol           Rol
+  activo        Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  productor     Productor?
+  comprador     Comprador?
+  asociacion    Asociacion?
+  mensajes      Mensaje[]
+  notificaciones Notificacion[]
+  confirmaciones ConfirmacionEntrega[]
+  pagos_registrados Pago[] @relation("PagosRegistrados")
+
+  @@map("usuarios")
+}
+
+enum Rol {
+  productor
+  comprador
+  asociacion
+}
+
+model Productor {
+  id           Int        @id @default(autoincrement())
+  usuario_id   Int        @unique
+  asociacion_id Int?
+  dpi          String?    @unique @db.VarChar(20)
+  municipio    String?    @db.VarChar(100)
+  departamento String?    @db.VarChar(100)
+  hectareas    Decimal?   @db.Decimal(8,2)
+  descripcion  String?
+  calificacion Decimal    @default(0.00) @db.Decimal(3,2)
+  created_at   DateTime   @default(now())
+
+  usuario      Usuario    @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  asociacion   Asociacion? @relation(fields: [asociacion_id], references: [id])
+  publicaciones Publicacion[]
+  negociaciones Negociacion[] @relation("NegociacionProductor")
+
+  @@map("productores")
+}
+
+model Comprador {
+  id            Int      @id @default(autoincrement())
+  usuario_id    Int      @unique
+  razon_social  String?  @db.VarChar(200)
+  nit           String?  @unique @db.VarChar(20)
+  municipio     String?  @db.VarChar(100)
+  departamento  String?  @db.VarChar(100)
+  tipo_comprador String? @db.VarChar(50)
+  calificacion  Decimal  @default(0.00) @db.Decimal(3,2)
+  created_at    DateTime @default(now())
+
+  usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  negociaciones Negociacion[] @relation("NegociacionComprador")
+
+  @@map("compradores")
+}
+
+model Asociacion {
+  id           Int       @id @default(autoincrement())
+  usuario_id   Int       @unique
+  nombre       String    @db.VarChar(200)
+  nit          String?   @unique @db.VarChar(20)
+  municipio    String?   @db.VarChar(100)
+  departamento String?   @db.VarChar(100)
+  descripcion  String?
+  activa       Boolean   @default(true)
+  created_at   DateTime  @default(now())
+
+  usuario      Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  productores  Productor[]
+
+  @@map("asociaciones")
+}
+
+model Producto {
+  id            Int       @id @default(autoincrement())
+  nombre        String    @db.VarChar(150)
+  categoria     String?   @db.VarChar(100)
+  unidad_medida String    @db.VarChar(30)
+  descripcion   String?
+  activo        Boolean   @default(true)
+  created_at    DateTime  @default(now())
+
+  publicaciones Publicacion[]
+
+  @@map("productos")
+}
+
+model Publicacion {
+  id                  Int      @id @default(autoincrement())
+  productor_id        Int
+  producto_id         Int
+  titulo              String   @db.VarChar(200)
+  descripcion         String?
+  cantidad_disponible Decimal  @db.Decimal(10,2)
+  precio_unitario     Decimal  @db.Decimal(10,2)
+  unidad_medida       String   @db.VarChar(30)
+  municipio           String?  @db.VarChar(100)
+  departamento        String?  @db.VarChar(100)
+  fecha_cosecha       DateTime? @db.Date
+  estado              EstadoPublicacion @default(activa)
+  imagen_url          String?  @db.VarChar(500)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  productor    Productor    @relation(fields: [productor_id], references: [id])
+  producto     Producto     @relation(fields: [producto_id], references: [id])
+  negociaciones Negociacion[]
+
+  @@map("publicaciones")
+}
+
+enum EstadoPublicacion {
+  activa
+  pausada
+  cerrada
+  vencida
+}
+
+model Negociacion {
+  id                     Int      @id @default(autoincrement())
+  publicacion_id         Int
+  comprador_id           Int
+  productor_id           Int
+  cantidad_solicitada    Decimal  @db.Decimal(10,2)
+  precio_acordado        Decimal? @db.Decimal(10,2)
+  estado                 EstadoNegociacion @default(pendiente)
+  condiciones            String?
+  fecha_entrega_acordada DateTime? @db.Date
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  publicacion  Publicacion  @relation(fields: [publicacion_id], references: [id])
+  comprador    Comprador    @relation("NegociacionComprador", fields: [comprador_id], references: [id])
+  productor    Productor    @relation("NegociacionProductor", fields: [productor_id], references: [id])
+  mensajes     Mensaje[]
+  entrega      Entrega?
+  pagos        Pago[]
+
+  @@map("negociaciones")
+}
+
+enum EstadoNegociacion {
+  pendiente
+  en_proceso
+  aceptada
+  rechazada
+  completada
+  cancelada
+}
+
+model Mensaje {
+  id            Int      @id @default(autoincrement())
+  negociacion_id Int
+  remitente_id  Int
+  contenido     String
+  leido         Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  negociacion   Negociacion @relation(fields: [negociacion_id], references: [id], onDelete: Cascade)
+  remitente     Usuario     @relation(fields: [remitente_id], references: [id])
+
+  @@map("mensajes")
+}
+
+model Entrega {
+  id              Int      @id @default(autoincrement())
+  negociacion_id  Int      @unique
+  fecha_programada DateTime? @db.Date
+  fecha_realizada  DateTime? @db.Date
+  lugar_entrega   String?  @db.VarChar(300)
+  estado          EstadoEntrega @default(pendiente)
+  notas           String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  negociacion     Negociacion @relation(fields: [negociacion_id], references: [id])
+  confirmaciones  ConfirmacionEntrega[]
+
+  @@map("entregas")
+}
+
+enum EstadoEntrega {
+  pendiente
+  en_transito
+  entregado
+  con_problema
+}
+
+model ConfirmacionEntrega {
+  id               Int      @id @default(autoincrement())
+  entrega_id       Int
+  usuario_id       Int
+  rol_confirmador  String   @db.VarChar(20)
+  confirmado       Boolean  @default(false)
+  observaciones    String?
+  fecha_confirmacion DateTime?
+
+  entrega  Entrega @relation(fields: [entrega_id], references: [id], onDelete: Cascade)
+  usuario  Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@unique([entrega_id, usuario_id])
+  @@map("confirmaciones_entrega")
+}
+
+model Pago {
+  id             Int      @id @default(autoincrement())
+  negociacion_id Int
+  monto          Decimal  @db.Decimal(12,2)
+  metodo_pago    String   @db.VarChar(50)
+  referencia     String?  @db.VarChar(200)
+  estado         EstadoPago @default(pendiente)
+  fecha_pago     DateTime? @db.Date
+  registrado_por Int?
+  notas          String?
+  created_at     DateTime @default(now())
+
+  negociacion  Negociacion @relation(fields: [negociacion_id], references: [id])
+  registrador  Usuario?    @relation("PagosRegistrados", fields: [registrado_por], references: [id])
+
+  @@map("pagos")
+}
+
+enum EstadoPago {
+  pendiente
+  completado
+  fallido
+  reembolsado
+}
+
+model Notificacion {
+  id            Int      @id @default(autoincrement())
+  usuario_id    Int
+  tipo          String   @db.VarChar(50)
+  titulo        String   @db.VarChar(200)
+  mensaje       String
+  leida         Boolean  @default(false)
+  referencia_id Int?
+  created_at    DateTime @default(now())
+
+  usuario  Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("notificaciones")
+}
