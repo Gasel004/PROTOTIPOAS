@@ -120,9 +120,6 @@ export default function Publicaciones() {
 function PubCard({ pub, onClick }) {
   return (
     <div className="pub-card" onClick={onClick}>
-      <div className="pub-card-img">
-        <Package size={48} style={{ color: 'var(--verde-300)', position: 'relative', zIndex: 1 }} />
-      </div>
       <div className="pub-card-body">
         <div className="pub-card-title">{pub.titulo}</div>
         <div className="pub-card-price">

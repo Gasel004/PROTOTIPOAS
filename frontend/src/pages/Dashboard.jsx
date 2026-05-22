@@ -5,8 +5,17 @@ import api from '../api/client';
 import { PlusCircle, Store, Handshake, Truck, CreditCard, User,
          TrendingUp, Package, ShoppingCart, DollarSign, ArrowRight,
          Lightbulb, CheckCircle } from 'lucide-react';
+import DashboardAsociacion from './DashboardAsociacion';
 
 export default function Dashboard() {
+  const { user } = useAuthStore();
+
+  if (user?.rol === 'asociacion') return <DashboardAsociacion />;
+
+  return <DashboardGeneral />;
+}
+
+function DashboardGeneral() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -40,7 +49,7 @@ export default function Dashboard() {
     return [
       { id:1, titulo:'Maíz blanco 50 qq', estado:'Pendiente', contraparte:'Juan Pérez', fecha:'2025-05-08' },
       { id:2, titulo:'Frijol negro 20 qq', estado:'Aceptada', contraparte:'Comercial Sur', fecha:'2025-05-07' },
-      { id:3, titulo:'Tomate cherry 10 cajas', estado:'En proceso', contraparte:'Mercado Central', fecha:'2025-05-06' },
+      { id:3, titulo:'Tomate cherry 10 cajas', estado:'En proceso', contraparte:'Mercado Central', fecha:'2025-06-06' },
     ];
   }
 
@@ -54,7 +63,6 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-in-up">
-      {/* Hero */}
       <div style={{
         background:'linear-gradient(135deg, var(--verde-900) 0%, var(--verde-700) 100%)',
         borderRadius:'var(--radius-xl)', padding:'var(--sp-8)',
@@ -86,7 +94,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid-4" style={{ marginBottom:'var(--sp-8)' }}>
         {isProductor ? <>
           <StatCard icon={<Package size={22}/>} label="Publicaciones activas" value={stats?.publicaciones ?? 0} color="verde" />
@@ -101,9 +108,7 @@ export default function Dashboard() {
         </>}
       </div>
 
-      {/* Panel inferior */}
       <div className="grid-2">
-        {/* Negociaciones recientes */}
         <div className="card">
           <div className="card-header flex items-center justify-between">
             <h3>Negociaciones recientes</h3>
@@ -131,7 +136,6 @@ export default function Dashboard() {
             ))}
         </div>
 
-        {/* Accesos rápidos */}
         <div style={{ display:'flex', flexDirection:'column', gap:'var(--sp-5)' }}>
           <div className="card">
             <div className="card-header"><h3>Accesos rápidos</h3></div>

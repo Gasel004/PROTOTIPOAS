@@ -17,7 +17,7 @@ export default function CrearPublicacion() {
   const [form, setForm] = useState({
     producto_id:'', titulo:'', descripcion:'',
     cantidad_disponible:'', precio_unitario:'', unidad_medida:'quintal',
-    municipio:'', departamento:'', imagen_url:'',
+    municipio:'', departamento:'',
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -202,17 +202,6 @@ export default function CrearPublicacion() {
           </div>
         </div>
 
-        <div className="card" style={{ marginBottom:'var(--sp-6)' }}>
-          <div className="card-header"><h4>4. Información adicional</h4></div>
-          <div className="card-body">
-            <div className="form-group">
-              <label className="form-label">URL de imagen</label>
-              <input className="form-input" name="imagen_url" value={form.imagen_url} onChange={handleChange}
-                placeholder="https://..." />
-              <p className="form-hint">Enlace a una foto del producto (opcional)</p>
-            </div>
-          </div>
-        </div>
 
         <div style={{ display:'flex', justifyContent:'flex-end', gap:'var(--sp-3)' }}>
           <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancelar</button>

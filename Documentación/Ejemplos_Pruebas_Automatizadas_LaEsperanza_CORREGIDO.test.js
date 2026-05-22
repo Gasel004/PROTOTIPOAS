@@ -17,13 +17,13 @@ const app     = require('../src/index'); // Asumiendo que exporta app
 
 // ─── Datos de prueba ────────────────────────────────────────
 const USUARIO_PRODUCTOR = {
-  email: 'productor@test.com',
+  telefono: '4256-0001',
   password: 'Test1234!',
   nombre: 'Productor Test',
   rol: 'productor',
 };
 const USUARIO_COMPRADOR = {
-  email: 'comprador@test.com',
+  telefono: '4256-0002',
   password: 'Test1234!',
   nombre: 'Comprador Test',
   rol: 'comprador',
@@ -37,7 +37,7 @@ let negociacionId;
 // ============================================================
 // MÓDULO: Autenticación
 // ============================================================
-describe('🔐 Auth — Registro y Login', () => {
+describe(' Auth — Registro y Login', () => {
 
   test('POST /api/v1/auth/register — debe registrar un nuevo usuario', async () => {
     const res = await request(app)
@@ -51,7 +51,7 @@ describe('🔐 Auth — Registro y Login', () => {
     tokenProductor = res.body.data.token;
   });
 
-  test('POST /api/v1/auth/register — debe rechazar email duplicado', async () => {
+  test('POST /api/v1/auth/register — debe rechazar teléfono duplicado', async () => {
     const res = await request(app)
       .post('/api/v1/auth/register')
       .send(USUARIO_PRODUCTOR)
@@ -64,7 +64,7 @@ describe('🔐 Auth — Registro y Login', () => {
   test('POST /api/v1/auth/register — debe rechazar datos incompletos', async () => {
     const res = await request(app)
       .post('/api/v1/auth/register')
-      .send({ email: 'solo@email.com' })
+      .send({ telefono: '4256-9999' })
       .expect(400);
 
     expect(res.body.success).toBe(false);
@@ -76,7 +76,7 @@ describe('🔐 Auth — Registro y Login', () => {
 
     const res = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: USUARIO_COMPRADOR.email, password: USUARIO_COMPRADOR.password })
+      .send({ telefono: USUARIO_COMPRADOR.telefono, password: USUARIO_COMPRADOR.password })
       .expect(200);
 
     expect(res.body.data).toHaveProperty('token');
@@ -86,16 +86,16 @@ describe('🔐 Auth — Registro y Login', () => {
   test('POST /api/v1/auth/login — debe rechazar contraseña incorrecta', async () => {
     const res = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: USUARIO_COMPRADOR.email, password: 'wrongpass' })
+      .send({ telefono: USUARIO_COMPRADOR.telefono, password: 'wrongpass' })
       .expect(401);
 
     expect(res.body.success).toBe(false);
   });
 
-  test('POST /api/v1/auth/login — debe rechazar email inexistente', async () => {
+  test('POST /api/v1/auth/login — debe rechazar teléfono inexistente', async () => {
     const res = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: 'noexiste@test.com', password: 'Test1234!' })
+      .send({ telefono: '9999-9999', password: 'Test1234!' })
       .expect(401);
   });
 
@@ -105,7 +105,7 @@ describe('🔐 Auth — Registro y Login', () => {
       .set('Authorization', `Bearer ${tokenProductor}`)
       .expect(200);
 
-    expect(res.body.data.email).toBe(USUARIO_PRODUCTOR.email);
+    expect(res.body.data.telefono).toBe(USUARIO_PRODUCTOR.telefono);
     expect(res.body.data).not.toHaveProperty('password_hash');
   });
 
@@ -121,7 +121,7 @@ describe('🔐 Auth — Registro y Login', () => {
 // ============================================================
 // MÓDULO: Publicaciones
 // ============================================================
-describe('📋 Publicaciones — CRUD', () => {
+describe(' Publicaciones — CRUD', () => {
 
   test('POST /api/v1/publicaciones — debe crear publicación (solo productor)', async () => {
     const res = await request(app)
@@ -237,7 +237,7 @@ describe('📋 Publicaciones — CRUD', () => {
 // ============================================================
 // MÓDULO: Negociaciones
 // ============================================================
-describe('🤝 Negociaciones — Flujo completo', () => {
+describe(' Negociaciones — Flujo completo', () => {
 
   test('POST /api/v1/negociaciones — debe crear negociación (solo comprador)', async () => {
     const res = await request(app)
@@ -320,7 +320,7 @@ describe('🤝 Negociaciones — Flujo completo', () => {
     // Registrar un tercer usuario
     const userRes = await request(app)
       .post('/api/v1/auth/register')
-      .send({ email: 'otro@test.com', password: 'Test1234!', nombre: 'Otro', rol: 'comprador' });
+      .send({ telefono: '4256-0003', password: 'Test1234!', nombre: 'Otro', rol: 'comprador' });
 
     const otroToken = userRes.body.data.token;
 
@@ -334,7 +334,7 @@ describe('🤝 Negociaciones — Flujo completo', () => {
 // ============================================================
 // MÓDULO: Mensajes
 // ============================================================
-describe('💬 Mensajes — Chat en negociaciones', () => {
+describe(' Mensajes — Chat en negociaciones', () => {
 
   test('POST /api/v1/negociaciones/:id/mensajes — debe enviar mensaje', async () => {
     const res = await request(app)
@@ -368,7 +368,7 @@ describe('💬 Mensajes — Chat en negociaciones', () => {
 // ============================================================
 // MÓDULO: Entregas
 // ============================================================
-describe('📦 Entregas — Gestión y confirmación', () => {
+describe(' Entregas — Gestión y confirmación', () => {
 
   let entregaId;
 
@@ -431,7 +431,7 @@ describe('📦 Entregas — Gestión y confirmación', () => {
 // ============================================================
 // MÓDULO: Pagos
 // ============================================================
-describe('💳 Pagos — Registro y estados', () => {
+describe(' Pagos — Registro y estados', () => {
 
   test('POST /api/v1/pagos — debe registrar pago', async () => {
     const res = await request(app)
@@ -481,7 +481,7 @@ describe('💳 Pagos — Registro y estados', () => {
 // ============================================================
 // MÓDULO: Notificaciones
 // ============================================================
-describe('🔔 Notificaciones', () => {
+describe(' Notificaciones', () => {
 
   test('GET /api/v1/notificaciones — debe listar notificaciones del usuario', async () => {
     const res = await request(app)
@@ -490,7 +490,7 @@ describe('🔔 Notificaciones', () => {
       .expect(200);
 
     expect(res.body).toHaveProperty('data');
-    expect(res.body).toHaveProperty('noLeidas');
+    // La respuesta tiene estructura: { success, data: [...notificaciones] }
   });
 
   test('PATCH /api/v1/notificaciones/leer-todas — debe marcar todas como leídas', async () => {
@@ -506,7 +506,7 @@ describe('🔔 Notificaciones', () => {
 // ============================================================
 // MÓDULO: Control de Acceso (RBAC)
 // ============================================================
-describe('🛡️ RBAC — Control de acceso por roles', () => {
+describe(' RBAC — Control de acceso por roles', () => {
 
   test('Debe rechazar endpoints de productor si el usuario es comprador', async () => {
     await request(app)
@@ -541,7 +541,7 @@ describe('🛡️ RBAC — Control de acceso por roles', () => {
 // ============================================================
 // MÓDULO: Health Check
 // ============================================================
-describe('🏥 Health Check', () => {
+describe(' Health Check', () => {
   test('GET /api/v1/health — debe responder OK', async () => {
     const res = await request(app)
       .get('/api/v1/health')

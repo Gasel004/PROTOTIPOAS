@@ -65,16 +65,6 @@ export default function DetallePublicacion() {
       <div className="grid-2" style={{ alignItems: 'start' }}>
         {/* Columna principal */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-          {/* Imagen / hero */}
-          <div style={{
-            background: 'linear-gradient(135deg, var(--verde-50), var(--verde-100))',
-            borderRadius: 'var(--radius-xl)', height: 220,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '5rem', border: '1px solid var(--verde-100)',
-          }}>
-            {pub.emoji ?? ''}
-          </div>
-
           {/* Info principal */}
           <div className="card">
             <div className="card-body">
