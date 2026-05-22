@@ -1,4 +1,4 @@
-# 🌿 Sistema La Esperanza
+#  Sistema La Esperanza
 
 **Plataforma de Gestión Agrícola** — Proyecto III
 
@@ -6,7 +6,7 @@ Sistema web que digitaliza la comercialización agrícola directa entre producto
 
 ---
 
-## 🏗️ Arquitectura
+##  Arquitectura
 
 ```
 sistema-la-esperanza/
@@ -28,7 +28,7 @@ sistema-la-esperanza/
 
 ---
 
-## 🚀 Inicio rápido (Docker)
+##  Inicio rápido (Docker)
 
 ```bash
 # 1. Clonar el repositorio
@@ -53,7 +53,7 @@ docker compose exec backend npx prisma db seed
 
 ---
 
-## 💻 Desarrollo local (sin Docker)
+##  Desarrollo local (sin Docker)
 
 ### Requisitos
 - Node.js 20 LTS
@@ -82,21 +82,21 @@ npm run dev               # http://localhost:5173
 
 ---
 
-## 📋 Módulos del sistema
+##  Módulos del sistema
 
 | Módulo | Descripción |
 |--------|-------------|
-| 🔐 Autenticación | Registro y login con JWT por rol |
-| 🌾 Publicaciones | Ofertas de venta de productores |
-| 🤝 Negociaciones | Canal privado productor ↔ comprador |
-| 💬 Mensajería | Chat interno por negociación |
-| 📦 Entregas | Confirmación doble de entregas |
-| 💳 Pagos | Registro y seguimiento de pagos |
-| 🔔 Notificaciones | Alertas automáticas del sistema |
+|  Autenticación | Registro y login con JWT por rol |
+|  Publicaciones | Ofertas de venta de productores |
+|  Negociaciones | Canal privado productor ↔ comprador |
+|  Mensajería | Chat interno por negociación |
+|  Entregas | Confirmación doble de entregas |
+|  Pagos | Registro y seguimiento de pagos |
+|  Notificaciones | Alertas automáticas del sistema |
 
 ---
 
-## 👥 Actores del sistema
+##  Actores del sistema
 
 - **Productor** — publica ofertas, gestiona negociaciones y entregas
 - **Comprador** — explora publicaciones, inicia y gestiona negociaciones
@@ -104,7 +104,7 @@ npm run dev               # http://localhost:5173
 
 ---
 
-## 📁 Variables de entorno requeridas
+##  Variables de entorno requeridas
 
 Ver `.env.example` para la lista completa. Las principales:
 
@@ -122,7 +122,7 @@ FRONTEND_URL=http://localhost
 
 ---
 
-## 🧪 Pruebas
+##  Pruebas
 
 ```bash
 # Pruebas unitarias e integración (backend)
@@ -138,7 +138,7 @@ npm test -- --coverage
 
 ---
 
-## 📚 Documentación
+##  Documentación
 
 La documentación completa del proyecto se encuentra en `/docs/`:
 
@@ -157,7 +157,7 @@ La documentación completa del proyecto se encuentra en `/docs/`:
 
 ---
 
-## 🔀 Gitflow
+##  Gitflow
 
 ```
 main        ← producción (solo merges de release/* y hotfix/*)
@@ -170,12 +170,12 @@ hotfix/*    ← correcciones urgentes en producción
 
 ---
 
-## 📦 Versión actual
+##  Versión actual
 
 **v1.0.0** — Release inicial · Mayo 2025
 
 ---
 
-## 📄 Licencia
+##  Licencia
 
 Proyecto académico — Ingeniería en Sistemas de Información · Proyecto III
