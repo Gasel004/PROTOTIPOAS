@@ -140,7 +140,7 @@ npm test -- --coverage
 
 ##  Documentación
 
-La documentación completa del proyecto se encuentra en `/docs/`:
+La documentación completa del proyecto se encuentra en `/documentación/`:
 
 | Documento | Descripción |
 |-----------|-------------|
@@ -157,22 +157,9 @@ La documentación completa del proyecto se encuentra en `/docs/`:
 
 ---
 
-##  Gitflow
-
-```
-main        ← producción (solo merges de release/* y hotfix/*)
-develop     ← integración de features
-feature/*   ← nuevas funcionalidades
-fix/*       ← correcciones en desarrollo
-release/*   ← preparación de versión
-hotfix/*    ← correcciones urgentes en producción
-```
-
----
-
 ##  Versión actual
 
-**v1.0.0** — Release inicial · Mayo 2025
+**v1.0.0** — Release inicial · Mayo 2026
 
 ---
 

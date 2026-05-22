@@ -7,7 +7,10 @@ const app  = express();
 const PORT = process.env.PORT ?? 3000;
 
 // ── Middlewares globales ───────────────────────────────────
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin: process.env.FRONTEND_URL?.split(',').map(s => s.trim()) ?? ['http://localhost:8081'],
+  credentials: true,
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
