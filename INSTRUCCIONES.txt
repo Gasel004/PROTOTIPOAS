@@ -3,7 +3,7 @@
   Plataforma de Gestion Agricola
 ====================================================================
 
-Repositorio: https://github.com/Gasel004/claudio
+Repositorio: https://github.com/Gasel004/PROTOTIPOAS
 
 
 ====================================================================
