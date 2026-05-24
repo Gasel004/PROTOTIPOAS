@@ -100,7 +100,7 @@ export default function Login() {
         <div className="cloud cloud-two" />
         <div className="field-copy">
           <span>Cosecha conectada</span>
-          <strong>Del surco al mercado, con la comunidad al centro.</strong>
+          <strong>Del surco al mercado, sin complicaciones.</strong>
         </div>
         <div className="hill hill-back" />
         <div className="hill hill-front" />
