@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
-import { User, Phone, Lock, Check, ChevronRight, ArrowLeft } from 'lucide-react';
+import { User, Phone, Lock, Check, ChevronRight, ArrowLeft, Leaf, Sprout } from 'lucide-react';
 
 const ROLES = [
   { value: 'productor', label: 'Productor', desc: 'Publico y vendo mis cosechas' },
@@ -70,40 +70,31 @@ export default function Registro() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, var(--verde-900) 0%, var(--verde-700) 50%, var(--verde-600) 100%)',
-      padding: 'var(--sp-4)',
-    }}>
-      <div className="card animate-fade-in-up" style={{ width: '100%', maxWidth: 460, padding: 'var(--sp-8)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
-        
-        <div style={{ textAlign: 'center', marginBottom: 'var(--sp-6)' }}>
-          <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--verde-800)', margin: 0, fontSize: '2rem' }}>
-            La Esperanza
-          </h1>
-          <p className="text-muted text-sm" style={{ marginTop: 'var(--sp-1)' }}>Plataforma de comercio agrícola directo</p>
+    <main className="auth-page">
+      <section className="auth-panel auth-panel-scroll animate-fade-in">
+        <div className="auth-brand compact">
+          <div className="auth-mark">
+            <Leaf size={24} />
+          </div>
+          <div>
+            <h1>La Esperanza</h1>
+            <p>Plataforma de comercio agrícola directo</p>
+          </div>
         </div>
 
-        {/* Indicador de Pasos */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--sp-6)', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 16, left: '25%', right: '25%', height: 2, background: step >= 2 ? 'var(--verde-600)' : 'var(--gris-200)', zIndex: 0 }} />
-          {[1, 2].map((n) => (
-            <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: '.875rem', transition: 'all 0.3s ease',
-                background: step >= n ? 'var(--verde-700)' : 'var(--gris-200)',
-                color: step >= n ? 'var(--blanco)' : 'var(--gris-500)',
-              }}>
+        <div className="auth-heading compact">
+          <span className="eyebrow">Nueva cuenta</span>
+          <h2>Registro</h2>
+          <p>Cuéntanos cómo participas en la cadena agrícola para preparar tu espacio de trabajo.</p>
+        </div>
+
+        <div className="auth-steps">
+          {[1, 2].map(n => (
+            <div key={n} className={`auth-step ${step >= n ? 'done' : ''} ${step === n ? 'current' : ''}`}>
+              <span>
                 {step > n ? <Check size={16} strokeWidth={3} /> : n}
-              </div>
-              <div style={{
-                fontSize: '.75rem', marginTop: 'var(--sp-2)',
-                color: step >= n ? 'var(--verde-800)' : 'var(--gris-400)',
-                fontWeight: step === n ? 600 : 400
-              }}>
-                {n === 1 ? 'Tipo de cuenta' : 'Datos personales'}
-              </div>
+              </span>
+              <small>{n === 1 ? 'Tipo de cuenta' : 'Datos personales'}</small>
             </div>
           ))}
         </div>
@@ -116,30 +107,23 @@ export default function Registro() {
 
         {step === 1 && (
           <div>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: 'var(--sp-4)', color: 'var(--gris-800)' }}>
+            <h3 className="auth-section-title">
               ¿Cómo usarás la plataforma?
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
+            </h3>
+            <div className="role-list">
               {ROLES.map(r => {
                 const isSelected = form.rol === r.value;
                 return (
                   <div key={r.value}
                     onClick={() => { setForm(f => ({ ...f, rol: r.value })); setError(''); }}
-                    style={{
-                      border: `2px solid ${isSelected ? 'var(--verde-600)' : 'var(--gris-200)'}`,
-                      borderRadius: 12, padding: 'var(--sp-4)', cursor: 'pointer',
-                      background: isSelected ? 'var(--verde-50)' : 'var(--blanco)',
-                      transition: 'all .2s ease', display: 'flex', alignItems: 'center', gap: 'var(--sp-4)',
-                    }}
+                    className={`role-option ${isSelected ? 'selected' : ''}`}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, color: isSelected ? 'var(--verde-800)' : 'var(--gris-800)' }}>
-                        {r.label}
-                      </div>
-                      <div style={{ fontSize: '.8125rem', color: 'var(--gris-500)', marginTop: 2 }}>{r.desc}</div>
+                      <strong>{r.label}</strong>
+                      <p>{r.desc}</p>
                     </div>
                     {isSelected && (
-                      <div style={{ marginLeft: 'auto', width: 20, height: 20, borderRadius: '50%', background: 'var(--verde-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--blanco)' }}>
+                      <div className="role-check">
                         <Check size={12} strokeWidth={3} />
                       </div>
                     )}
@@ -156,9 +140,9 @@ export default function Registro() {
 
         {step === 2 && (
           <form onSubmit={handleSubmit}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: 'var(--sp-4)', color: 'var(--gris-800)' }}>
+            <h3 className="auth-section-title">
               Crea tu credencial de acceso
-            </h2>
+            </h3>
             
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -207,9 +191,35 @@ export default function Registro() {
         <p style={{ textAlign: 'center', marginTop: 'var(--sp-5)', fontSize: '.875rem', color: 'var(--gris-500)', marginBottom: 0 }}>
           ¿Ya tienes cuenta? <Link to="/login" style={{ color: 'var(--verde-700)', fontWeight: 600, textDecoration: 'none' }}>Inicia sesión</Link>
         </p>
-      </div>
-    </div>
+      </section>
+
+      <section className="auth-field auth-field-register" aria-hidden="true">
+        <div className="sun" />
+        <div className="cloud cloud-one" />
+        <div className="cloud cloud-two" />
+        <div className="field-copy">
+          <span>Red de productores</span>
+          <strong>Una cuenta para sembrar confianza y cerrar mejores tratos.</strong>
+        </div>
+        <div className="hill hill-back" />
+        <div className="hill hill-front" />
+        <div className="furrows">
+          {Array.from({ length: 10 }).map((_, i) => <span key={i} />)}
+        </div>
+        <div className="crop-row crop-row-one">
+          {Array.from({ length: 9 }).map((_, i) => <Sprout key={i} size={34} />)}
+        </div>
+        <div className="crop-row crop-row-two">
+          {Array.from({ length: 7 }).map((_, i) => <Sprout key={i} size={42} />)}
+        </div>
+        <div className="tractor">
+          <div className="tractor-cabin" />
+          <div className="tractor-body" />
+          <div className="wheel wheel-big" />
+          <div className="wheel wheel-small" />
+        </div>
+      </section>
+    </main>
   );
 }
-
 

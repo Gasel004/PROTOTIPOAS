@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import useAuthStore from '../store/auth.store';
 import {
   LayoutDashboard, Package, PlusCircle, Handshake, Truck, CreditCard,
-  User, Bell, LogOut, Leaf, ChevronRight, Store
+  User, Bell, LogOut, Leaf, Store, Menu, X
 } from 'lucide-react';
 
 const NAV_ITEMS = {
@@ -40,6 +41,7 @@ const PAGE_TITLES = {
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const path = window.location.pathname;
   const pageTitle = PAGE_TITLES[path] ?? 'La Esperanza';
   const items = NAV_ITEMS[user?.rol] ?? NAV_ITEMS.comprador;
@@ -48,7 +50,12 @@ export default function Layout() {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar app-sidebar">
+      {mobileOpen && <div className="mobile-nav-backdrop" onClick={() => setMobileOpen(false)} />}
+
+      <aside className={`sidebar app-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+        <button className="mobile-close" onClick={() => setMobileOpen(false)} title="Cerrar menú">
+          <X size={20} />
+        </button>
         <div className="sidebar-brand">
           <Leaf size={22} strokeWidth={2} style={{ color:'var(--verde-300)', flexShrink:0 }} />
           <div>
@@ -61,13 +68,14 @@ export default function Layout() {
           <div className="nav-section-label">Menú principal</div>
           {items.map(item => (
             <NavLink key={item.to} to={item.to}
+              onClick={() => setMobileOpen(false)}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
               <span className="nav-icon">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
           <div className="nav-section-label" style={{ marginTop:'1.5rem' }}>Cuenta</div>
-          <NavLink to="/perfil" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+          <NavLink to="/perfil" onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <span className="nav-icon"><User size={18}/></span>
             Mi Perfil
           </NavLink>
@@ -86,7 +94,12 @@ export default function Layout() {
       </aside>
 
       <header className="topbar app-topbar">
-        <span className="topbar-title">{pageTitle}</span>
+        <div className="topbar-left">
+          <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} title="Abrir menú">
+            <Menu size={20} />
+          </button>
+          <span className="topbar-title">{pageTitle}</span>
+        </div>
         <div className="topbar-actions">
           <button className="notif-btn" title="Notificaciones">
             <Bell size={20} />
@@ -97,6 +110,15 @@ export default function Layout() {
       </header>
 
       <main className="app-content"><Outlet /></main>
+
+      <nav className="mobile-bottom-nav">
+        {items.slice(0, 4).map(item => (
+          <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? 'active' : ''}>
+            {item.icon}
+            <span>{item.label.replace('Mis ', '').replace('Nueva Publicación', 'Nueva')}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

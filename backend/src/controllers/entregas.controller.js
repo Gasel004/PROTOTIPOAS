@@ -14,7 +14,20 @@ async function listar(req, res, next) {
       const negs = await prisma.negociacion.findMany({ where:{comprador_id:c?.id}, select:{id:true} });
       negIds = negs.map(n=>n.id);
     }
-    const data = await prisma.entrega.findMany({ where:{negociacion_id:{in:negIds}}, include:{confirmaciones:true,negociacion:{include:{publicacion:{select:{titulo:true}}}}}, orderBy:{created_at:'desc'} });
+    const data = await prisma.entrega.findMany({
+      where:{negociacion_id:{in:negIds}},
+      include:{
+        confirmaciones:true,
+        negociacion:{
+          include:{
+            publicacion:{select:{titulo:true}},
+            comprador:{include:{usuario:{select:{nombre:true}}}},
+            productor:{include:{usuario:{select:{nombre:true}}}},
+          }
+        }
+      },
+      orderBy:{created_at:'desc'}
+    });
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }

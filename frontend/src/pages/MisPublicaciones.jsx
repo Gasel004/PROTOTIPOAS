@@ -11,6 +11,17 @@ const MOCK = [
 ];
 const ESTADO_OPTS = ['Todos', 'activa', 'pausada', 'cerrada', 'vencida'];
 
+function normalizePub(p) {
+  return {
+    ...p,
+    producto: p.producto?.nombre ?? p.producto ?? 'Producto',
+    precio_unitario: Number(p.precio_unitario ?? 0),
+    cantidad_disponible: Number(p.cantidad_disponible ?? 0),
+    negociaciones: Array.isArray(p.negociaciones) ? p.negociaciones.length : Number(p.negociaciones ?? 0),
+    created_at: p.created_at ? String(p.created_at).slice(0, 10) : '',
+  };
+}
+
 export default function MisPublicaciones() {
   const navigate = useNavigate();
   const [pubs, setPubs] = useState([]);
@@ -20,8 +31,8 @@ export default function MisPublicaciones() {
 
   useEffect(() => {
     api.get('/publicaciones/mis-publicaciones')
-      .then(r => setPubs(r.data?.data ?? []))
-      .catch(() => setPubs(MOCK))
+      .then(r => setPubs((r.data?.data ?? []).map(normalizePub)))
+      .catch(() => setPubs(MOCK.map(normalizePub)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -162,4 +173,3 @@ export default function MisPublicaciones() {
     </div>
   );
 }
-

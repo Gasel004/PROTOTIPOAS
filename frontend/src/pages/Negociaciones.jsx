@@ -22,6 +22,23 @@ const ESTADO_CONFIG = {
   cancelada:  { badge:'badge-gris',  label:'Cancelada',  icon:<XCircle size={14}/> },
 };
 
+function normalizeNeg(n, user) {
+  const isProductor = user?.rol === 'productor';
+  const contraparte = isProductor
+    ? n.comprador?.usuario?.nombre
+    : n.productor?.usuario?.nombre;
+  return {
+    ...n,
+    titulo: n.publicacion?.titulo ?? n.titulo ?? 'Negociación',
+    contraparte: contraparte ?? n.contraparte ?? 'Contraparte',
+    cantidad_solicitada: Number(n.cantidad_solicitada ?? 0),
+    precio_acordado: n.precio_acordado == null ? null : Number(n.precio_acordado),
+    unidad_medida: n.publicacion?.unidad_medida ?? n.unidad_medida ?? 'unidad',
+    mensajes_nuevos: Number(n.mensajes_nuevos ?? 0),
+    created_at: n.created_at ? String(n.created_at).slice(0, 10) : '',
+  };
+}
+
 export default function Negociaciones() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -32,8 +49,8 @@ export default function Negociaciones() {
 
   useEffect(() => {
     api.get('/negociaciones')
-      .then(r => setNegs(r.data?.data ?? []))
-      .catch(() => setNegs(MOCK))
+      .then(r => setNegs((r.data?.data ?? []).map(n => normalizeNeg(n, user))))
+      .catch(() => setNegs(MOCK.map(n => normalizeNeg(n, user))))
       .finally(() => setLoading(false));
   }, []);
 

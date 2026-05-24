@@ -13,6 +13,28 @@ const TRANSICIONES = {
   cancelada:   [],
 };
 
+async function asegurarEntregaParaNegociacion(negociacionId, data = {}) {
+  const existe = await prisma.entrega.findUnique({ where: { negociacion_id: negociacionId } });
+  if (existe) return existe;
+
+  const neg = await prisma.negociacion.findUnique({
+    where: { id: negociacionId },
+    include: { publicacion: true },
+  });
+  if (!neg) return null;
+
+  const lugar = [neg.publicacion?.municipio, neg.publicacion?.departamento].filter(Boolean).join(', ');
+  return prisma.entrega.create({
+    data: {
+      negociacion_id: negociacionId,
+      fecha_programada: data.fecha_entrega_acordada ? new Date(data.fecha_entrega_acordada) : neg.fecha_entrega_acordada,
+      lugar_entrega: data.lugar_entrega ?? (lugar || null),
+      estado: data.estado ?? 'pendiente',
+      notas: data.notas,
+    },
+  });
+}
+
 async function listar(req, res, next) {
   try {
     const { estado, page=1, limit=20 } = req.query;
@@ -33,7 +55,14 @@ async function listar(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const neg = await prisma.negociacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ publicacion:true, comprador:{ include:{ usuario:true } }, productor:{ include:{ usuario:true } } } });
+    const neg = await prisma.negociacion.findUnique({
+      where:{ id:Number(req.params.id) },
+      include:{
+        publicacion:true,
+        comprador:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } },
+        productor:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } },
+      }
+    });
     if (!neg) return res.status(404).json({ success:false, message:'No encontrada' });
     const esParticipante = neg.comprador.usuario_id === req.user.id || neg.productor.usuario_id === req.user.id;
     if (!esParticipante) return res.status(403).json({ success:false, message:'No es participante de esta negociación' });
@@ -69,6 +98,15 @@ async function cambiarEstado(req, res, next) {
     if (!TRANSICIONES[neg.estado]?.includes(estado))
       return res.status(400).json({ success:false, message:'Transición de estado inválida' });
     const data = await prisma.negociacion.update({ where:{ id:neg.id }, data:{ estado, precio_acordado:precio_acordado?Number(precio_acordado):undefined, condiciones, fecha_entrega_acordada:fecha_entrega_acordada?new Date(fecha_entrega_acordada):undefined } });
+    if (estado === 'aceptada') {
+      await asegurarEntregaParaNegociacion(neg.id, { fecha_entrega_acordada });
+    }
+    if (estado === 'completada') {
+      const entrega = await asegurarEntregaParaNegociacion(neg.id, { fecha_entrega_acordada, estado:'entregado' });
+      if (entrega?.estado !== 'entregado') {
+        await prisma.entrega.update({ where:{ id:entrega.id }, data:{ estado:'entregado', fecha_realizada:new Date() } });
+      }
+    }
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }

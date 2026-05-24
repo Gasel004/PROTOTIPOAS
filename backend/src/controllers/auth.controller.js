@@ -21,4 +21,14 @@ async function me(req, res, next) {
   } catch(e) { next(e); }
 }
 
-module.exports = { register, login, me };
+async function cambiarPassword(req, res, next) {
+  try {
+    const data = await authService.cambiarPassword(req.user.id, {
+      password_actual: req.body.password_actual,
+      password_nueva: req.body.password_nueva,
+    });
+    res.json({ success:true, data });
+  } catch(e) { next(e); }
+}
+
+module.exports = { register, login, me, cambiarPassword };

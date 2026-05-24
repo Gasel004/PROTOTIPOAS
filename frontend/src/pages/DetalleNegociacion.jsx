@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
@@ -28,11 +28,42 @@ const ESTADO_SIGUIENTES = {
   cancelada: [],
 };
 
+function normalizeNeg(n) {
+  return {
+    ...n,
+    titulo: n.publicacion?.titulo ?? n.titulo ?? 'Negociación',
+    cantidad_solicitada: Number(n.cantidad_solicitada ?? 0),
+    precio_acordado: n.precio_acordado == null ? null : Number(n.precio_acordado),
+    unidad_medida: n.publicacion?.unidad_medida ?? n.unidad_medida ?? 'unidad',
+    created_at: n.created_at ? String(n.created_at).slice(0, 10) : '',
+    fecha_entrega_acordada: n.fecha_entrega_acordada ? String(n.fecha_entrega_acordada).slice(0, 10) : null,
+    productor: {
+      ...n.productor,
+      nombre: n.productor?.usuario?.nombre ?? n.productor?.nombre,
+      telefono: n.productor?.usuario?.telefono ?? n.productor?.telefono,
+    },
+    comprador: {
+      ...n.comprador,
+      nombre: n.comprador?.usuario?.nombre ?? n.comprador?.nombre,
+      telefono: n.comprador?.usuario?.telefono ?? n.comprador?.telefono,
+    },
+  };
+}
+
+function normalizeMsg(m) {
+  return {
+    ...m,
+    remitente: m.remitente?.nombre ?? m.remitente ?? 'Usuario',
+    created_at: m.created_at ? String(m.created_at).replace('T', ' ').slice(0, 16) : '',
+  };
+}
+
 export default function DetalleNegociacion() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const chatRef = useRef(null);
+  const pollingRef = useRef(null);
 
   const [neg, setNeg] = useState(null);
   const [msgs, setMsgs] = useState([]);
@@ -41,16 +72,48 @@ export default function DetalleNegociacion() {
   const [sending, setSending] = useState(false);
   const [modalAcept, setModalAcept] = useState(false);
   const [precioForm, setPrecioForm] = useState('');
+  const [chatLive, setChatLive] = useState(false);
+
+  const cargarMensajes = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const res = await api.get(`/negociaciones/${id}/mensajes`);
+      const nuevos = (res.data?.data ?? []).map(normalizeMsg);
+      setMsgs(prev => {
+        const prevKey = prev.map(m => `${m.id}:${m.leido}`).join('|');
+        const nextKey = nuevos.map(m => `${m.id}:${m.leido}`).join('|');
+        return prevKey === nextKey ? prev : nuevos;
+      });
+      setChatLive(true);
+      if (!silent) await api.patch(`/negociaciones/${id}/mensajes/leer`).catch(() => {});
+    } catch {
+      setChatLive(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     Promise.all([
       api.get(`/negociaciones/${id}`).catch(() => ({ data: { data: MOCK_NEG } })),
       api.get(`/negociaciones/${id}/mensajes`).catch(() => ({ data: { data: MOCK_MSGS } })),
     ]).then(([nRes, mRes]) => {
-      setNeg(nRes.data?.data ?? MOCK_NEG);
-      setMsgs(mRes.data?.data ?? MOCK_MSGS);
+      setNeg(normalizeNeg(nRes.data?.data ?? MOCK_NEG));
+      setMsgs((mRes.data?.data ?? MOCK_MSGS).map(normalizeMsg));
+      setChatLive(true);
     }).finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    pollingRef.current = window.setInterval(() => {
+      if (document.visibilityState === 'visible') cargarMensajes({ silent: true });
+    }, 2000);
+
+    const onFocus = () => cargarMensajes({ silent: true });
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.clearInterval(pollingRef.current);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [cargarMensajes]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -64,7 +127,8 @@ export default function DetalleNegociacion() {
     setTexto('');
     try {
       const res = await api.post(`/negociaciones/${id}/mensajes`, { contenido: texto });
-      setMsgs(prev => prev.map(m => m.id === optimista.id ? (res.data?.data ?? m) : m));
+      setMsgs(prev => prev.map(m => m.id === optimista.id ? normalizeMsg(res.data?.data ?? m) : m));
+      cargarMensajes({ silent: true });
     } catch { setMsgs(prev => prev.filter(m => m.id !== optimista.id)); }
     finally { setSending(false); }
   }
@@ -137,7 +201,12 @@ export default function DetalleNegociacion() {
           {/* Mensajes */}
           <div className="card">
             <div className="card-header">
-              <h4> Mensajes privados</h4>
+              <div className="flex items-center justify-between gap-3">
+                <h4> Mensajes privados</h4>
+                <span className={`chat-live ${chatLive ? 'on' : 'off'}`}>
+                  {chatLive ? 'En vivo' : 'Reconectando'}
+                </span>
+              </div>
             </div>
             <div className="chat-wrap" style={{ border: 'none', borderRadius: 0, height: 400 }}>
               <div className="chat-messages" ref={chatRef}>
@@ -166,7 +235,7 @@ export default function DetalleNegociacion() {
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(); } }}
                 />
                 <button className="btn btn-primary" onClick={enviarMensaje} disabled={sending || !texto.trim()}>
-                  {sending ? '' : ''}
+                  {sending ? 'Enviando...' : 'Enviar'}
                 </button>
               </div>
             </div>
@@ -200,8 +269,8 @@ export default function DetalleNegociacion() {
             <div className="card-header"><h4> Participantes</h4></div>
             <div className="card-body">
               {[
-                [' Productor', neg.productor?.nombre, neg.productor?.email],
-                ['‍ Comprador', neg.comprador?.nombre, neg.comprador?.email],
+                [' Productor', neg.productor?.nombre, neg.productor?.telefono],
+                ['‍ Comprador', neg.comprador?.nombre, neg.comprador?.telefono],
               ].map(([rol, nombre, email]) => (
                 <div key={rol} style={{ marginBottom: 'var(--sp-4)' }}>
                   <div style={{ fontSize: '.8rem', color: 'var(--gris-500)', marginBottom: 4 }}>{rol}</div>
@@ -281,4 +350,3 @@ export default function DetalleNegociacion() {
     </div>
   );
 }
-

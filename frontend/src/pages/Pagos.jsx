@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import useAuthStore from '../store/auth.store';
 import { CreditCard, CheckCircle, Clock, XCircle, RefreshCw, PlusCircle, DollarSign } from 'lucide-react';
 
 const MOCK = [
@@ -17,8 +18,23 @@ const ESTADO_CFG = {
   reembolsado: { badge: 'badge-azul',  icon: <RefreshCw size={13} />,   label: 'Reembolsado' },
 };
 
+function normalizePago(p, user) {
+  const isProductor = user?.rol === 'productor';
+  const contraparte = isProductor
+    ? p.negociacion?.comprador?.usuario?.nombre
+    : p.negociacion?.productor?.usuario?.nombre;
+  return {
+    ...p,
+    titulo_neg: p.negociacion?.publicacion?.titulo ?? p.titulo_neg ?? 'Negociación',
+    contraparte: contraparte ?? p.contraparte ?? 'Contraparte',
+    monto: Number(p.monto ?? 0),
+    fecha_pago: p.fecha_pago ? String(p.fecha_pago).slice(0, 10) : null,
+  };
+}
+
 export default function Pagos() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('Todos');
@@ -28,8 +44,8 @@ export default function Pagos() {
 
   useEffect(() => {
     api.get('/pagos')
-      .then(r => setPagos(r.data?.data ?? []))
-      .catch(() => setPagos(MOCK))
+      .then(r => setPagos((r.data?.data ?? []).map(p => normalizePago(p, user))))
+      .catch(() => setPagos(MOCK.map(p => normalizePago(p, user))))
       .finally(() => setLoading(false));
   }, []);
 
@@ -211,4 +227,3 @@ export default function Pagos() {
     </div>
   );
 }
-

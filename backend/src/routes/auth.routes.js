@@ -8,6 +8,7 @@ const { verificarToken } = require('../middleware/auth');
 router.post('/register', ctrl.register);
 router.post('/login',    ctrl.login);
 router.get('/me',        verificarToken, ctrl.me);
+router.put('/password',  verificarToken, ctrl.cambiarPassword);
 
 module.exports = router;
 

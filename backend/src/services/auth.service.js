@@ -66,4 +66,21 @@ async function me(id) {
   return rest;
 }
 
-module.exports = { register, login, me };
+async function cambiarPassword(id, { password_actual, password_nueva }) {
+  if (!password_actual || !password_nueva)
+    throw Object.assign(new Error('Contraseña actual y nueva contraseña son requeridas'), { status: 400 });
+  if (password_nueva.length < 8)
+    throw Object.assign(new Error('La nueva contraseña debe tener al menos 8 caracteres'), { status: 400 });
+
+  const usuario = await prisma.usuario.findUnique({ where: { id } });
+  if (!usuario) throw Object.assign(new Error('Usuario no encontrado'), { status: 404 });
+
+  const ok = await bcrypt.compare(password_actual, usuario.password_hash);
+  if (!ok) throw Object.assign(new Error('La contraseña actual no es correcta'), { status: 401 });
+
+  const password_hash = await bcrypt.hash(password_nueva, 10);
+  await prisma.usuario.update({ where: { id }, data: { password_hash } });
+  return { message: 'Contraseña actualizada correctamente' };
+}
+
+module.exports = { register, login, me, cambiarPassword };

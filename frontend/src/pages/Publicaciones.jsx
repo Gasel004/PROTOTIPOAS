@@ -14,6 +14,18 @@ const MOCK_PUBS = [
   { id: 6, titulo: 'Güicoy tierno grande', producto: 'Güicoy', categoria: 'Verduras', precio_unitario: 45, unidad_medida: 'caja', cantidad_disponible: 90, municipio: 'Jalapa', departamento: 'Jalapa', productor: 'Productor Directo', calificacion: 4.3 },
 ];
 
+function normalizePub(p) {
+  return {
+    ...p,
+    producto: p.producto?.nombre ?? p.producto ?? 'Producto',
+    categoria: p.producto?.categoria ?? p.categoria ?? '',
+    precio_unitario: Number(p.precio_unitario ?? 0),
+    cantidad_disponible: Number(p.cantidad_disponible ?? 0),
+    productor: p.productor?.usuario?.nombre ?? p.productor ?? 'Productor',
+    calificacion: Number(p.productor?.calificacion ?? p.calificacion ?? 0),
+  };
+}
+
 export default function Publicaciones() {
   const navigate = useNavigate();
   const [pubs, setPubs] = useState([]);
@@ -34,9 +46,9 @@ export default function Publicaciones() {
         }
         if (precioMax) params.set('precio_max', precioMax);
         const res = await api.get(`/publicaciones?${params}`);
-        setPubs(res.data?.data ?? []);
+        setPubs((res.data?.data ?? []).map(normalizePub));
       } catch {
-        setPubs(MOCK_PUBS);
+        setPubs(MOCK_PUBS.map(normalizePub));
       } finally {
         setLoading(false);
       }
@@ -143,5 +155,4 @@ function PubCard({ pub, onClick }) {
     </div>
   );
 }
-
 

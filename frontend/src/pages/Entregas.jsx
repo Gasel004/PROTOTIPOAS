@@ -17,6 +17,27 @@ const ESTADO_CFG = {
   con_problema: { badge: 'badge-rojo', label: 'Con problema', icon: <AlertTriangle size={16} /> },
 };
 
+function normalizeEntrega(e, user) {
+  const isProductor = user?.rol === 'productor';
+  const confirmaciones = e.confirmaciones ?? [];
+  const productorUserId = e.negociacion?.productor?.usuario_id;
+  const compradorUserId = e.negociacion?.comprador?.usuario_id;
+  const confirmacion_productor = e.confirmacion_productor ?? confirmaciones.some(c => c.usuario_id === productorUserId || c.rol_confirmador === 'productor');
+  const confirmacion_comprador = e.confirmacion_comprador ?? confirmaciones.some(c => c.usuario_id === compradorUserId || c.rol_confirmador === 'comprador');
+  const contraparte = isProductor
+    ? e.negociacion?.comprador?.usuario?.nombre
+    : e.negociacion?.productor?.usuario?.nombre;
+
+  return {
+    ...e,
+    titulo: e.negociacion?.publicacion?.titulo ?? e.titulo ?? 'Entrega',
+    contraparte: contraparte ?? e.contraparte ?? 'Contraparte',
+    fecha_programada: e.fecha_programada ? String(e.fecha_programada).slice(0, 10) : '',
+    confirmacion_productor,
+    confirmacion_comprador,
+  };
+}
+
 export default function Entregas() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -30,8 +51,8 @@ export default function Entregas() {
 
   useEffect(() => {
     api.get('/entregas')
-      .then(r => setEntregas(r.data?.data ?? []))
-      .catch(() => setEntregas(MOCK))
+      .then(r => setEntregas((r.data?.data ?? []).map(e => normalizeEntrega(e, user))))
+      .catch(() => setEntregas(MOCK.map(e => normalizeEntrega(e, user))))
       .finally(() => setLoading(false));
   }, []);
 
@@ -188,5 +209,4 @@ function ConfirmBadge({ label, done }) {
     </div>
   );
 }
-
 

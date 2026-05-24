@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
+import { Leaf, Lock, Phone, Sprout } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -32,73 +33,93 @@ export default function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #388E3C 100%)',
-      padding: '1rem',
-    }}>
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-        {['12rem', '8rem', '16rem'].map((s, i) => (
-          <div key={i} style={{
-            position: 'absolute', width: s, height: s, borderRadius: '50%',
-            background: 'rgba(255,255,255,.04)',
-            top: ['10%', '60%', '30%'][i], left: ['70%', '10%', '85%'][i],
-          }} />
-        ))}
-      </div>
-
-      <div style={{
-        background: 'white', borderRadius: '24px', padding: '2.5rem',
-        width: '100%', maxWidth: '420px',
-        boxShadow: '0 20px 60px rgba(0,0,0,.2)', position: 'relative',
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '.5rem' }}></div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.75rem', fontWeight: 700, color: '#1B5E20', marginBottom: '.25rem' }}>
-            La Esperanza
-          </h1>
-          <p style={{ color: '#6B7280', fontSize: '.9rem' }}>Plataforma de Gestión Agrícola</p>
+    <main className="auth-page">
+      <section className="auth-panel animate-fade-in">
+        <div className="auth-brand">
+          <div className="auth-mark">
+            <Leaf size={24} />
+          </div>
+          <div>
+            <h1>
+              La Esperanza
+            </h1>
+            <p>Plataforma de gestión agrícola</p>
+          </div>
         </div>
 
-        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem', color: '#111827' }}>
-          Iniciar sesión
-        </h2>
+        <div className="auth-heading">
+          <span className="eyebrow">Acceso seguro</span>
+          <h2>
+            Iniciar sesión
+          </h2>
+          <p>Entra para publicar cosechas, negociar entregas y revisar tus pagos.</p>
+        </div>
 
         {error && (
-          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '.75rem 1rem', marginBottom: '1rem', color: '#DC2626', fontSize: '.875rem', display: 'flex', gap: '.5rem' }}>
+          <div className="alert alert-error auth-error">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label className="form-label">Número de teléfono</label>
-        <input className="form-input" type="tel" placeholder="4256-1234"
-          value={form.telefono}
-          onChange={e=>setForm(f => ({ ...f, telefono: formatTelefono(e.target.value) }))}
-          autoComplete="tel" autoFocus maxLength={9} />
+            <div className="input-icon-wrap">
+              <Phone size={17} />
+              <input className="form-input" type="tel" placeholder="4256-1234"
+                value={form.telefono}
+                onChange={e=>setForm(f => ({ ...f, telefono: formatTelefono(e.target.value) }))}
+                autoComplete="tel" autoFocus maxLength={9} />
+            </div>
           </div>
           <div className="form-group">
             <label className="form-label">Contraseña</label>
-            <input className="form-input" type="password" placeholder="••••••••"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              autoComplete="current-password" />
+            <div className="input-icon-wrap">
+              <Lock size={17} />
+              <input className="form-input" type="password" placeholder="********"
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                autoComplete="current-password" />
+            </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-full btn-lg"
-         style={{ marginTop:'.5rem' }} disabled={loading}>
-            {loading ? ' Ingresando...' : 'Ingresar '}
+          <button type="submit" className="btn btn-primary btn-full btn-lg auth-submit" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '.9rem', color: '#6B7280' }}>
+        <p className="auth-switch">
           ¿No tienes cuenta?{' '}
-          <Link to="/registro" style={{ color: '#2E7D32', fontWeight: 600 }}>Regístrate</Link>
+          <Link to="/registro">Regístrate</Link>
         </p>
-      </div>
-    </div>
+      </section>
+
+      <section className="auth-field" aria-hidden="true">
+        <div className="sun" />
+        <div className="cloud cloud-one" />
+        <div className="cloud cloud-two" />
+        <div className="field-copy">
+          <span>Cosecha conectada</span>
+          <strong>Del surco al mercado, con la comunidad al centro.</strong>
+        </div>
+        <div className="hill hill-back" />
+        <div className="hill hill-front" />
+        <div className="furrows">
+          {Array.from({ length: 10 }).map((_, i) => <span key={i} />)}
+        </div>
+        <div className="crop-row crop-row-one">
+          {Array.from({ length: 9 }).map((_, i) => <Sprout key={i} size={34} />)}
+        </div>
+        <div className="crop-row crop-row-two">
+          {Array.from({ length: 7 }).map((_, i) => <Sprout key={i} size={42} />)}
+        </div>
+        <div className="tractor">
+          <div className="tractor-cabin" />
+          <div className="tractor-body" />
+          <div className="wheel wheel-big" />
+          <div className="wheel wheel-small" />
+        </div>
+      </section>
+    </main>
   );
 }
-
-

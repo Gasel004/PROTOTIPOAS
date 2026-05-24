@@ -3,6 +3,7 @@ const c = require('../controllers/publicaciones.controller');
 const { verificarToken, soloRoles } = require('../middleware/auth');
 
 r.get('/',              c.listar);
+r.get('/mis-publicaciones', verificarToken, soloRoles('productor'), c.misPublicaciones);
 r.get('/:id',          c.obtener);
 r.post('/',            verificarToken, soloRoles('productor'), c.crear);
 r.put('/:id',          verificarToken, soloRoles('productor'), c.actualizar);

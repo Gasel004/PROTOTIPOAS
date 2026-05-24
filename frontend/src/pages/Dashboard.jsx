@@ -63,34 +63,32 @@ function DashboardGeneral() {
 
   return (
     <div className="animate-fade-in-up">
-      <div style={{
-        background:'linear-gradient(135deg, var(--verde-900) 0%, var(--verde-700) 100%)',
-        borderRadius:'var(--radius-xl)', padding:'var(--sp-8)',
-        marginBottom:'var(--sp-8)', color:'var(--blanco)', position:'relative', overflow:'hidden',
-      }}>
-        <div style={{ position:'absolute',top:-40,right:-40,width:200,height:200,background:'rgba(255,255,255,.05)',borderRadius:'50%' }} />
-        <div style={{ position:'absolute',bottom:-60,right:80,width:140,height:140,background:'rgba(255,255,255,.04)',borderRadius:'50%' }} />
-        <p style={{ fontSize:'.875rem', opacity:.75, marginBottom:'var(--sp-1)' }}>{saludo},</p>
-        <h1 style={{ color:'var(--blanco)', marginBottom:'var(--sp-2)' }}>{user?.nombre ?? 'Bienvenido'}</h1>
-        <p style={{ opacity:.75, maxWidth:500, fontSize:'.9375rem' }}>
-          {isProductor
-            ? 'Gestiona tus publicaciones, revisa negociaciones activas y mantén al día tus entregas.'
-            : 'Explora las mejores ofertas agrícolas y negocia directamente con productores.'}
-        </p>
-        <div style={{ marginTop:'var(--sp-5)', display:'flex', gap:'var(--sp-3)', flexWrap:'wrap' }}>
-          {isProductor
-            ? <button className="btn btn-oro" onClick={() => navigate('/publicaciones/nueva')}
-                style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <PlusCircle size={16}/> Nueva publicación
-              </button>
-            : <button className="btn btn-oro" onClick={() => navigate('/publicaciones')}
-                style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <Store size={16}/> Ver publicaciones
-              </button>}
-          <button className="btn" style={{ background:'rgba(255,255,255,.15)', color:'var(--blanco)', border:'1px solid rgba(255,255,255,.3)', display:'flex', alignItems:'center', gap:6 }}
-            onClick={() => navigate('/negociaciones')}>
-            <Handshake size={16}/> Negociaciones
-          </button>
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-copy">
+          <p>{saludo},</p>
+          <h1>{user?.nombre ?? 'Bienvenido'}</h1>
+          <span>
+            {isProductor
+              ? 'Hoy tu mesa de trabajo se centra en vender mejor: ofertas claras, entregas visibles y conversaciones ordenadas.'
+              : 'Explora cosechas disponibles, compara con calma y conversa directo con quienes producen.'}
+          </span>
+          <div>
+            {isProductor
+              ? <button className="btn btn-oro" onClick={() => navigate('/publicaciones/nueva')}>
+                  <PlusCircle size={16}/> Nueva publicación
+                </button>
+              : <button className="btn btn-oro" onClick={() => navigate('/publicaciones')}>
+                  <Store size={16}/> Ver publicaciones
+                </button>}
+            <button className="btn dashboard-hero-secondary" onClick={() => navigate('/negociaciones')}>
+              <Handshake size={16}/> Negociaciones
+            </button>
+          </div>
+        </div>
+        <div className="dashboard-field-card">
+          <span>Temporada activa</span>
+          <strong>{isProductor ? 'Cosecha lista para negociar' : 'Mercado abierto'}</strong>
+          <small>{isProductor ? 'Mantén precios y disponibilidad al día.' : 'Las mejores oportunidades cambian rápido.'}</small>
         </div>
       </div>
 

@@ -8,7 +8,11 @@ const PORT = process.env.PORT ?? 3000;
 
 // ── Middlewares globales ───────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL?.split(',').map(s => s.trim()) ?? ['http://localhost:8081'],
+  origin: process.env.FRONTEND_URL?.split(',').map(s => s.trim()) ?? [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8081',
+  ],
   credentials: true,
 }));
 app.use(express.json());
@@ -25,6 +29,7 @@ app.use('/api/v1/negociaciones', require('./routes/negociaciones.routes'));
 app.use('/api/v1/entregas',      require('./routes/entregas.routes'));
 app.use('/api/v1/pagos',         require('./routes/pagos.routes'));
 app.use('/api/v1/notificaciones',require('./routes/notificaciones.routes'));
+app.use('/api/v1/dashboard',      require('./routes/dashboard.routes'));
 
 // ── Health check ──────────────────────────────────────────
 app.get('/api/v1/health', (_req, res) => res.json({ status:'ok', timestamp: new Date() }));

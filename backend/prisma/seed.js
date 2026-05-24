@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seed...');
+  console.log('Iniciando seed');
 
   const hash = await bcrypt.hash('Admin1234!', 10);
 
@@ -64,12 +64,12 @@ async function main() {
     });
   }
 
-  console.log('✅ Seed completado.');
+  console.log('Seed completado.');
   console.log('');
   console.log('Cuentas de prueba (contraseña: Admin1234!):');
-  console.log('  🌾 Productor:  4000-0001');
-  console.log('  🧑‍💼 Comprador:  4000-0002');
-  console.log('  🏛  Asociación: 4000-0003');
+  console.log('Productor:  4000-0001');
+  console.log('Comprador:  4000-0002');
+  console.log('Asociación: 4000-0003');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

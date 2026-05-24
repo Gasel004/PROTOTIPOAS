@@ -12,6 +12,26 @@ const MOCK_PUB = {
   productor: { id: 5, nombre: 'Cooperativa Agrícola San Luis', municipio: 'Chiquimula', departamento: 'Chiquimula', calificacion: 4.8, publicaciones: 12, negociaciones_completadas: 34 },
 };
 
+function normalizePub(p) {
+  return {
+    ...p,
+    producto: p.producto?.nombre ?? p.producto ?? 'Producto',
+    categoria: p.producto?.categoria ?? p.categoria ?? '',
+    precio_unitario: Number(p.precio_unitario ?? 0),
+    cantidad_disponible: Number(p.cantidad_disponible ?? 0),
+    fecha_cosecha: p.fecha_cosecha ? String(p.fecha_cosecha).slice(0, 10) : p.fecha_cosecha,
+    productor: {
+      id: p.productor?.id,
+      nombre: p.productor?.usuario?.nombre ?? p.productor?.nombre ?? 'Productor',
+      municipio: p.productor?.municipio ?? p.municipio ?? '',
+      departamento: p.productor?.departamento ?? p.departamento ?? '',
+      calificacion: Number(p.productor?.calificacion ?? 0),
+      publicaciones: p.productor?.publicaciones ?? '—',
+      negociaciones_completadas: p.productor?.negociaciones_completadas ?? '—',
+    },
+  };
+}
+
 export default function DetallePublicacion() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -27,8 +47,8 @@ export default function DetallePublicacion() {
 
   useEffect(() => {
     api.get(`/publicaciones/${id}`)
-      .then(r => setPub(r.data?.data ?? null))
-      .catch(() => setPub(MOCK_PUB))
+      .then(r => setPub(r.data?.data ? normalizePub(r.data.data) : null))
+      .catch(() => setPub(normalizePub(MOCK_PUB)))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -91,7 +111,7 @@ export default function DetallePublicacion() {
                 {[
                   [' Disponible', `${pub.cantidad_disponible} ${pub.unidad_medida}s`],
                   [' Ubicación', `${pub.municipio}, ${pub.departamento}`],
-                  [' Cosecha', pub.fecha_harvest ?? 'No especificada'],
+                  [' Cosecha', pub.fecha_cosecha ?? 'No especificada'],
                   [' Valor total', `Q${total.toLocaleString()}`],
                 ].map(([lbl, val]) => (
                   <div key={lbl}>
@@ -234,5 +254,4 @@ export default function DetallePublicacion() {
     </div>
   );
 }
-
 

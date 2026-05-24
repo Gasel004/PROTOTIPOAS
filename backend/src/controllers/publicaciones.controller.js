@@ -3,26 +3,40 @@ const prisma = new PrismaClient();
 
 async function listar(req, res, next) {
   try {
-    const { departamento, municipio, producto_id, precio_min, precio_max, page=1, limit=20 } = req.query;
+    const { departamento, municipio, producto_id, categoria, precio_min, precio_max, page=1, limit=20 } = req.query;
     const where = { estado:'activa' };
     if (departamento) where.departamento = departamento;
     if (municipio)    where.municipio    = municipio;
     if (producto_id)  where.producto_id  = Number(producto_id);
+    if (categoria)    where.producto = { categoria };
     if (precio_min || precio_max) where.precio_unitario = {};
     if (precio_min) where.precio_unitario.gte = Number(precio_min);
     if (precio_max) where.precio_unitario.lte = Number(precio_max);
 
     const [data, total] = await Promise.all([
-      prisma.publicacion.findMany({ where, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true } } } } }, skip:(page-1)*limit, take:Number(limit), orderBy:{ created_at:'desc' } }),
+      prisma.publicacion.findMany({ where, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true } } } } }, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{ created_at:'desc' } }),
       prisma.publicacion.count({ where }),
     ]);
     res.json({ success:true, data, pagination:{ page:Number(page), limit:Number(limit), total } });
   } catch(e) { next(e); }
 }
 
+async function misPublicaciones(req, res, next) {
+  try {
+    const productor = await prisma.productor.findUnique({ where:{ usuario_id: req.user.id } });
+    if (!productor) return res.status(404).json({ success:false, message:'Perfil de productor no encontrado' });
+    const data = await prisma.publicacion.findMany({
+      where: { productor_id: productor.id },
+      include: { producto:true, negociaciones:{ select:{ id:true } } },
+      orderBy: { created_at:'desc' },
+    });
+    res.json({ success:true, data });
+  } catch(e) { next(e); }
+}
+
 async function obtener(req, res, next) {
   try {
-    const data = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true, email:true } } } } } });
+    const data = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } } } });
     if (!data) return res.status(404).json({ success:false, message:'Publicación no encontrada' });
     res.json({ success:true, data });
   } catch(e) { next(e); }
@@ -77,4 +91,4 @@ async function eliminar(req, res, next) {
   } catch(e) { next(e); }
 }
 
-module.exports = { listar, obtener, crear, actualizar, cambiarEstado, eliminar };
+module.exports = { listar, misPublicaciones, obtener, crear, actualizar, cambiarEstado, eliminar };

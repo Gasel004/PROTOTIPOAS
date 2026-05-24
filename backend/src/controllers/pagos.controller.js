@@ -6,14 +6,26 @@ async function listar(req, res, next) {
     const { estado } = req.query;
     const where = {};
     if (estado) where.estado = estado;
-    const data = await prisma.pago.findMany({ where, orderBy:{created_at:'desc'} });
+    const data = await prisma.pago.findMany({
+      where,
+      include:{
+        negociacion:{
+          include:{
+            publicacion:{select:{titulo:true}},
+            comprador:{include:{usuario:{select:{nombre:true}}}},
+            productor:{include:{usuario:{select:{nombre:true}}}},
+          }
+        }
+      },
+      orderBy:{created_at:'desc'}
+    });
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }
 
 async function obtener(req, res, next) {
   try {
-    const data = await prisma.pago.findUnique({ where:{id:Number(req.params.id)} });
+    const data = await prisma.pago.findUnique({ where:{id:Number(req.params.id)}, include:{negociacion:{include:{publicacion:true}}} });
     if (!data) return res.status(404).json({ success:false, message:'No encontrado' });
     res.json({ success:true, data });
   } catch(e) { next(e); }
