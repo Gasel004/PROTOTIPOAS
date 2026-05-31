@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { getFullImageUrl } from '../api/utils';
 import { Search, MapPin, Tag, DollarSign, ArrowUpDown, Star, Package } from 'lucide-react';
 
 const DEPARTAMENTOS = ['Todos', 'Alta Verapaz', 'Baja Verapaz', 'Chimaltenango', 'Chiquimula', 'El Progreso', 'Escuintla', 'Guatemala', 'Huehuetenango', 'Izabal', 'Jalapa', 'Jutiapa', 'Petén', 'Quetzaltenango', 'Quiché', 'Retalhuleu', 'Sacatepéquez', 'San Marcos', 'Santa Rosa', 'Sololá', 'Suchitepéquez', 'Totonicapán', 'Zacapa'];
@@ -131,7 +132,26 @@ export default function Publicaciones() {
 
 function PubCard({ pub, onClick }) {
   return (
-    <div className="pub-card" onClick={onClick}>
+    <div className="pub-card scale-in" onClick={onClick}>
+      <div className="pub-card-image-wrap">
+        {pub.imagen_url ? (
+          <img
+            src={getFullImageUrl(pub.imagen_url)}
+            alt={pub.titulo}
+            className="pub-card-image"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = ''; // Clear source to trigger fallback styling
+              e.target.style.display = 'none';
+              e.target.parentElement.innerHTML = `<div class="pub-card-image-placeholder"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
+            }}
+          />
+        ) : (
+          <div className="pub-card-image-placeholder">
+            <Package size={28} />
+          </div>
+        )}
+      </div>
       <div className="pub-card-body">
         <div className="pub-card-title">{pub.titulo}</div>
         <div className="pub-card-price">

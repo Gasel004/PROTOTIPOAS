@@ -95,7 +95,7 @@ export default function Negociaciones() {
       </div>
 
       {filtradas.length === 0
-        ? <div className="empty-state card" style={{ padding:'var(--sp-16)' }}>
+        ? <div className="empty-state" style={{ padding:'var(--sp-16)' }}>
             <Handshake size={48} style={{ color:'var(--gris-300)', marginBottom:'var(--sp-4)' }}/>
             <h3>Sin negociaciones {filtro !== 'Todos' ? `"${filtro}"` : ''}</h3>
             {!isProductor && filtro === 'Todos' && <>
@@ -108,7 +108,7 @@ export default function Negociaciones() {
               const cfg = ESTADO_CONFIG[neg.estado] ?? { badge:'badge-gris', label:neg.estado, icon:null };
               const total = neg.precio_acordado ? neg.precio_acordado * neg.cantidad_solicitada : null;
               return (
-                <div key={neg.id} className="card card-hover" style={{ cursor:'pointer' }}
+                <div key={neg.id} className={`card card-hover ${isProductor ? 'card-tint-verde' : 'card-tint-cielo'}`} style={{ cursor:'pointer' }}
                   onClick={() => navigate(`/negociaciones/${neg.id}`)}>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto auto', alignItems:'center',
                     gap:'var(--sp-5)', padding:'var(--sp-5) var(--sp-6)' }}>

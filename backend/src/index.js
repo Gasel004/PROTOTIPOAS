@@ -17,6 +17,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+// Servir archivos estáticos del directorio uploads
+app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 
 // ── Rutas ─────────────────────────────────────────────────
 app.use('/api/v1/auth',          require('./routes/auth.routes'));
@@ -30,6 +32,7 @@ app.use('/api/v1/entregas',      require('./routes/entregas.routes'));
 app.use('/api/v1/pagos',         require('./routes/pagos.routes'));
 app.use('/api/v1/notificaciones',require('./routes/notificaciones.routes'));
 app.use('/api/v1/dashboard',      require('./routes/dashboard.routes'));
+app.use('/api/v1/uploads',        require('./routes/uploads.routes'));
 
 // ── Health check ──────────────────────────────────────────
 app.get('/api/v1/health', (_req, res) => res.json({ status:'ok', timestamp: new Date() }));

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
+import { getFullImageUrl } from '../api/utils';
 
 const MOCK_PUB = {
   id: 1, titulo: 'Maíz blanco primera calidad', producto: 'Maíz', categoria: 'Granos básicos',
@@ -86,7 +87,16 @@ export default function DetallePublicacion() {
         {/* Columna principal */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
           {/* Info principal */}
-          <div className="card">
+          <div className="card scale-in">
+            {pub.imagen_url && (
+              <div className="detalle-pub-image-wrap">
+                <img
+                  src={getFullImageUrl(pub.imagen_url)}
+                  alt={pub.titulo}
+                  className="detalle-pub-image"
+                />
+              </div>
+            )}
             <div className="card-body">
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
                 <div>

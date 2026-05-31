@@ -40,15 +40,25 @@ async function listar(req, res, next) {
     let where = {};
     if (u.rol === 'comprador') {
       const c = await prisma.comprador.findUnique({ where:{ usuario_id:u.id } });
-      where.comprador_id = c?.id;
-    //strategy (filtro según rol(comprdor vs productor))
+      where.comprador_id = c?.id ?? 0;
     } else if (u.rol === 'productor') {
       const p = await prisma.productor.findUnique({ where:{ usuario_id:u.id } });
-      where.productor_id = p?.id;
+      where.productor_id = p?.id ?? 0;
+    } else if (u.rol === 'asociacion') {
+      return res.status(403).json({ success:false, message:'La asociación no puede consultar negociaciones privadas' });
     }
     if (estado) where.estado = estado;
-   //
-    const data = await prisma.negociacion.findMany({ where, include:{ publicacion:{ select:{ titulo:true } }, comprador:{ include:{ usuario:{ select:{ nombre:true } } } }, productor:{ include:{ usuario:{ select:{ nombre:true } } } } }, skip:(page-1)*limit, take:Number(limit), orderBy:{ updated_at:'desc' } });
+    const data = await prisma.negociacion.findMany({
+      where,
+      include:{
+        publicacion:{ select:{ titulo:true, unidad_medida:true } },
+        comprador:{ include:{ usuario:{ select:{ nombre:true } } } },
+        productor:{ include:{ usuario:{ select:{ nombre:true } } } },
+      },
+      skip:(Number(page)-1)*Number(limit),
+      take:Number(limit),
+      orderBy:{ updated_at:'desc' }
+    });
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }
@@ -77,7 +87,7 @@ async function crear(req, res, next) {
     const { publicacion_id, cantidad_solicitada, condiciones } = req.body;
     if (!publicacion_id || !cantidad_solicitada) return res.status(400).json({ success:false, message:'Faltan campos requeridos' });
     const pub = await prisma.publicacion.findUnique({ where:{ id:Number(publicacion_id) } });
-    if (!pub || pub.estado !== 'activa') return res.status(400).json({ success:false, message:'Publicación no disponible' });
+    if (!pub || pub.eliminada || pub.estado !== 'activa') return res.status(400).json({ success:false, message:'Publicación no disponible' });
     const existe = await prisma.negociacion.findFirst({ where:{ publicacion_id:Number(publicacion_id), comprador_id:comprador.id, estado:{ in:['pendiente','en_proceso','aceptada'] } } });
     if (existe) return res.status(409).json({ success:false, message:'Ya existe una negociación activa para esta publicación' });
     const data = await prisma.negociacion.create({ data:{ publicacion_id:Number(publicacion_id), comprador_id:comprador.id, productor_id:pub.productor_id, cantidad_solicitada:Number(cantidad_solicitada), condiciones } });

@@ -24,6 +24,9 @@ model Usuario {
   notificaciones Notificacion[]
   confirmaciones ConfirmacionEntrega[]
   pagos_registrados Pago[] @relation("PagosRegistrados")
+  calificaciones_emitidas Calificacion[] @relation("CalificacionesEmitidas")
+  calificaciones_recibidas Calificacion[] @relation("CalificacionesRecibidas")
+  calificaciones_revisadas Calificacion[] @relation("CalificacionesRevisadas")
 
   @@map("usuarios")
 }
@@ -44,6 +47,9 @@ model Productor {
   hectareas    Decimal?   @db.Decimal(8,2)
   descripcion  String?
   calificacion Decimal    @default(0.00) @db.Decimal(3,2)
+  suspendido_hasta DateTime?
+  suspension_motivo String?
+  suspendido_definitivo Boolean @default(false)
   created_at   DateTime   @default(now())
 
   usuario      Usuario    @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
@@ -115,6 +121,7 @@ model Publicacion {
   departamento        String?  @db.VarChar(100)
   fecha_cosecha       DateTime? @db.Date
   estado              EstadoPublicacion @default(activa)
+  eliminada           Boolean  @default(false)
   imagen_url          String?  @db.VarChar(500)
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
@@ -152,6 +159,7 @@ model Negociacion {
   mensajes     Mensaje[]
   entrega      Entrega?
   pagos        Pago[]
+  calificaciones Calificacion[]
 
   @@map("negociaciones")
 }
@@ -257,4 +265,32 @@ model Notificacion {
   usuario  Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
   @@map("notificaciones")
+}
+
+model Calificacion {
+  id             Int      @id @default(autoincrement())
+  negociacion_id Int
+  evaluador_id   Int
+  evaluado_id    Int
+  puntaje        Int
+  comentario     String?
+  estado         EstadoCalificacion @default(pendiente)
+  revisada_por   Int?
+  motivo_revision String?
+  created_at     DateTime @default(now())
+  reviewed_at    DateTime?
+
+  negociacion Negociacion @relation(fields: [negociacion_id], references: [id], onDelete: Cascade)
+  evaluador   Usuario     @relation("CalificacionesEmitidas", fields: [evaluador_id], references: [id])
+  evaluado    Usuario     @relation("CalificacionesRecibidas", fields: [evaluado_id], references: [id])
+  revisor     Usuario?    @relation("CalificacionesRevisadas", fields: [revisada_por], references: [id])
+
+  @@unique([negociacion_id, evaluador_id, evaluado_id])
+  @@map("calificaciones")
+}
+
+enum EstadoCalificacion {
+  pendiente
+  aprobada
+  rechazada
 }

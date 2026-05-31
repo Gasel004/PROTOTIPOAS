@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 async function listar(req, res, next) {
   try {
     const { departamento, municipio, producto_id, categoria, precio_min, precio_max, page=1, limit=20 } = req.query;
-    const where = { estado:'activa' };
+    const where = { estado:'activa', eliminada:false };
     if (departamento) where.departamento = departamento;
     if (municipio)    where.municipio    = municipio;
     if (producto_id)  where.producto_id  = Number(producto_id);
@@ -26,7 +26,7 @@ async function misPublicaciones(req, res, next) {
     const productor = await prisma.productor.findUnique({ where:{ usuario_id: req.user.id } });
     if (!productor) return res.status(404).json({ success:false, message:'Perfil de productor no encontrado' });
     const data = await prisma.publicacion.findMany({
-      where: { productor_id: productor.id },
+      where: { productor_id: productor.id, eliminada:false },
       include: { producto:true, negociaciones:{ select:{ id:true } } },
       orderBy: { created_at:'desc' },
     });
@@ -37,7 +37,7 @@ async function misPublicaciones(req, res, next) {
 async function obtener(req, res, next) {
   try {
     const data = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } } } });
-    if (!data) return res.status(404).json({ success:false, message:'Publicación no encontrada' });
+    if (!data || data.eliminada) return res.status(404).json({ success:false, message:'Publicación no encontrada' });
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }
@@ -57,7 +57,7 @@ async function crear(req, res, next) {
 async function actualizar(req, res, next) {
   try {
     const pub = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ productor:true } });
-    if (!pub) return res.status(404).json({ success:false, message:'No encontrada' });
+    if (!pub || pub.eliminada) return res.status(404).json({ success:false, message:'No encontrada' });
     if (pub.productor.usuario_id !== req.user.id)
       return res.status(403).json({ success:false, message:'Sin permiso para editar esta publicación' });
     const { titulo, descripcion, cantidad_disponible, precio_unitario, municipio, departamento, imagen_url } = req.body;
@@ -72,7 +72,7 @@ async function cambiarEstado(req, res, next) {
     const { estado } = req.body;
     if (!ESTADOS.includes(estado)) return res.status(400).json({ success:false, message:'Estado inválido' });
     const pub = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ productor:true } });
-    if (!pub) return res.status(404).json({ success:false, message:'No encontrada' });
+    if (!pub || pub.eliminada) return res.status(404).json({ success:false, message:'No encontrada' });
     if (pub.productor.usuario_id !== req.user.id)
       return res.status(403).json({ success:false, message:'Sin permiso' });
     const data = await prisma.publicacion.update({ where:{ id:pub.id }, data:{ estado } });
@@ -83,10 +83,10 @@ async function cambiarEstado(req, res, next) {
 async function eliminar(req, res, next) {
   try {
     const pub = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ productor:true } });
-    if (!pub) return res.status(404).json({ success:false, message:'No encontrada' });
+    if (!pub || pub.eliminada) return res.status(404).json({ success:false, message:'No encontrada' });
     if (pub.productor.usuario_id !== req.user.id)
       return res.status(403).json({ success:false, message:'Sin permiso' });
-    await prisma.publicacion.update({ where:{ id:pub.id }, data:{ estado:'cerrada' } });
+    await prisma.publicacion.update({ where:{ id:pub.id }, data:{ estado:'cerrada', eliminada:true } });
     res.json({ success:true, message:'Publicación eliminada' });
   } catch(e) { next(e); }
 }

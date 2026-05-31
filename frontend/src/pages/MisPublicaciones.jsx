@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { getFullImageUrl } from '../api/utils';
 import { PlusCircle, Pencil, Pause, Play, Trash2, Eye, Package } from 'lucide-react';
 
-const MOCK = [
-  { id: 1, titulo: 'Maíz blanco primera calidad', producto: 'Maíz', precio_unitario: 120, unidad_medida: 'quintal', cantidad_disponible: 80, estado: 'activa', created_at: '2025-04-20', negociaciones: 3 },
-  { id: 2, titulo: 'Frijol negro seleccionado', producto: 'Frijol', precio_unitario: 280, unidad_medida: 'quintal', cantidad_disponible: 0, estado: 'cerrada', created_at: '2025-03-15', negociaciones: 7 },
-  { id: 3, titulo: 'Güicoy tierno grande', producto: 'Güicoy', precio_unitario: 45, unidad_medida: 'caja', cantidad_disponible: 90, estado: 'activa', created_at: '2025-04-30', negociaciones: 1 },
-  { id: 4, titulo: 'Chile pimiento rojo', producto: 'Chile', precio_unitario: 65, unidad_medida: 'caja', cantidad_disponible: 50, estado: 'pausada', created_at: '2025-04-10', negociaciones: 2 },
-];
 const ESTADO_OPTS = ['Todos', 'activa', 'pausada', 'cerrada', 'vencida'];
 
 function normalizePub(p) {
@@ -28,11 +23,18 @@ export default function MisPublicaciones() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('Todos');
   const [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.get('/publicaciones/mis-publicaciones')
-      .then(r => setPubs((r.data?.data ?? []).map(normalizePub)))
-      .catch(() => setPubs(MOCK.map(normalizePub)))
+      .then(r => {
+        setPubs((r.data?.data ?? []).map(normalizePub));
+        setError('');
+      })
+      .catch(err => {
+        setPubs([]);
+        setError(err.response?.data?.message ?? 'No se pudieron cargar tus publicaciones.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -70,6 +72,8 @@ export default function MisPublicaciones() {
         </button>
       </div>
 
+      {error && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-5)' }}>{error}</div>}
+
       {/* Mini stats */}
       <div style={{ display: 'flex', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)', flexWrap: 'wrap' }}>
         {[['Activas', totales.activa, 'var(--verde-800)', 'var(--verde-50)'],
@@ -94,7 +98,7 @@ export default function MisPublicaciones() {
       </div>
 
       {filtradas.length === 0
-        ? <div className="empty-state card" style={{ padding: 'var(--sp-16)' }}>
+        ? <div className="empty-state" style={{ padding: 'var(--sp-16)' }}>
             <Package size={48} style={{ color: 'var(--gris-300)', marginBottom: 'var(--sp-4)' }} />
             <h3>Sin publicaciones {filtro !== 'Todos' ? `con estado "${filtro}"` : ''}</h3>
             <p style={{ marginBottom: 'var(--sp-5)' }}>Crea tu primera oferta y llega a compradores de todo el país</p>
@@ -103,7 +107,7 @@ export default function MisPublicaciones() {
               <PlusCircle size={16} /> Crear publicación
             </button>
           </div>
-        : <div className="table-wrap">
+        : <div className="table-wrap" style={{ border:'1px solid var(--verde-100)' }}>
             <table>
               <thead>
                 <tr>
@@ -115,9 +119,22 @@ export default function MisPublicaciones() {
                 {filtradas.map(p => (
                   <tr key={p.id}>
                     <td>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{p.titulo}</div>
-                        <div style={{ fontSize: '.8rem', color: 'var(--gris-500)' }}>{p.producto}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+                        {p.imagen_url ? (
+                          <img
+                            src={getFullImageUrl(p.imagen_url)}
+                            alt={p.titulo}
+                            className="table-thumbnail"
+                          />
+                        ) : (
+                          <div className="table-thumbnail-placeholder">
+                            <Package size={16} />
+                          </div>
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{p.titulo}</div>
+                          <div style={{ fontSize: '.8rem', color: 'var(--gris-500)' }}>{p.producto}</div>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -161,7 +178,7 @@ export default function MisPublicaciones() {
               <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(null)}>✕</button>
             </div>
             <div className="modal-body">
-              <p>Esta acción no se puede deshacer. La publicación será eliminada permanentemente.</p>
+              <p>La publicación dejará de aparecer en tu lista y no estará disponible para nuevas negociaciones.</p>
             </div>
             <div className="modal-footer">
           <button className="btn btn-ghost" onClick={() => setConfirm(null)}>Cancelar</button>

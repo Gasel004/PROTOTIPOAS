@@ -15,7 +15,11 @@ async function listar(req, res, next) {
 
 async function marcarUna(req, res, next) {
   try {
-    await prisma.notificacion.update({ where:{id:Number(req.params.id)}, data:{leida:true} });
+    const { count } = await prisma.notificacion.updateMany({
+      where:{ id:Number(req.params.id), usuario_id:req.user.id },
+      data:{ leida:true },
+    });
+    if (!count) return res.status(404).json({ success:false, message:'Notificación no encontrada' });
     res.json({ success:true });
   } catch(e) { next(e); }
 }

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
-import { User, MapPin, Lock, Save, Tractor, Briefcase, CheckCircle } from 'lucide-react';
+import { User, Lock, Save, Tractor, Briefcase, CheckCircle, Users } from 'lucide-react';
 
 export default function Perfil() {
   const { user, setUser } = useAuthStore();
   const isProductor = user?.rol === 'productor';
   const isComprador = user?.rol === 'comprador';
+  const isAsociacion = user?.rol === 'asociacion';
   const [tab, setTab] = useState('datos');
   const [form, setForm] = useState({ nombre: '', telefono: '', municipio: '', departamento: '', descripcion: '', razon_social: '', nit: '' });
   const [pwForm, setPwForm] = useState({ actual: '', nueva: '', confirmar: '' });
@@ -23,9 +24,9 @@ export default function Perfil() {
         setForm({
           nombre: d.nombre ?? user?.nombre ?? '',
           telefono: d.telefono ?? '',
-          municipio: d.productor?.municipio ?? d.comprador?.municipio ?? '',
-          departamento: d.productor?.departamento ?? d.comprador?.departamento ?? '',
-          descripcion: d.productor?.descripcion ?? '',
+          municipio: d.productor?.municipio ?? d.comprador?.municipio ?? d.asociacion?.municipio ?? '',
+          departamento: d.productor?.departamento ?? d.comprador?.departamento ?? d.asociacion?.departamento ?? '',
+          descripcion: d.productor?.descripcion ?? d.asociacion?.descripcion ?? '',
           razon_social: d.comprador?.razon_social ?? '',
           nit: d.comprador?.nit ?? d.asociacion?.nit ?? '',
         });
@@ -84,7 +85,7 @@ export default function Perfil() {
     <div className="animate-fade-in-up" style={{ maxWidth: 720, margin: '0 auto' }}>
       <h1 style={{ marginBottom: 'var(--sp-6)' }}>Mi Perfil</h1>
 
-      <div className="card" style={{ marginBottom: 'var(--sp-6)' }}>
+      <div className="card card-tint-verde card-accent-left" style={{ marginBottom: 'var(--sp-6)' }}>
         <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-6)' }}>
           <div style={{ width: 80, height: 80, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--verde-800), var(--verde-600))',
@@ -113,7 +114,7 @@ export default function Perfil() {
 
       {tab === 'datos' && (
         <form onSubmit={guardarDatos}>
-          <div className="card" style={{ marginBottom: 'var(--sp-5)' }}>
+          <div className="card card-tint-glass" style={{ marginBottom: 'var(--sp-5)' }}>
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <User size={16} /><h4 style={{ margin: 0 }}>Información básica</h4>
             </div>
@@ -134,7 +135,7 @@ export default function Perfil() {
           </div>
 
           {isProductor && (
-            <div className="card" style={{ marginBottom: 'var(--sp-5)' }}>
+            <div className="card card-tint-verde" style={{ marginBottom: 'var(--sp-5)' }}>
               <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Tractor size={16} /><h4 style={{ margin: 0 }}>Información de productor</h4>
               </div>
@@ -162,7 +163,7 @@ export default function Perfil() {
           )}
 
           {isComprador && (
-            <div className="card" style={{ marginBottom: 'var(--sp-5)' }}>
+            <div className="card card-tint-cielo" style={{ marginBottom: 'var(--sp-5)' }}>
               <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Briefcase size={16} /><h4 style={{ margin: 0 }}>Información comercial</h4>
               </div>
@@ -195,6 +196,39 @@ export default function Perfil() {
             </div>
           )}
 
+          {isAsociacion && (
+            <div className="card card-tint-verde" style={{ marginBottom: 'var(--sp-5)' }}>
+              <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Users size={16} /><h4 style={{ margin: 0 }}>Información de asociación</h4>
+              </div>
+              <div className="card-body">
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">NIT</label>
+                    <input className="form-input" value={form.nit}
+                      onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} placeholder="12345678-9" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Departamento</label>
+                    <input className="form-input" value={form.departamento}
+                      onChange={e => setForm(f => ({ ...f, departamento: e.target.value }))} placeholder="Chiquimula" />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Municipio</label>
+                  <input className="form-input" value={form.municipio}
+                    onChange={e => setForm(f => ({ ...f, municipio: e.target.value }))} placeholder="Chiquimula" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Descripción institucional</label>
+                  <textarea className="form-textarea" rows={3} value={form.descripcion}
+                    onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                    placeholder="Describe la misión, sede y red de productores de la asociación..." />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button type="submit" className="btn btn-primary" disabled={saving}
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -206,7 +240,7 @@ export default function Perfil() {
 
       {tab === 'seguridad' && (
         <form onSubmit={cambiarPassword}>
-          <div className="card" style={{ marginBottom: 'var(--sp-5)' }}>
+          <div className="card card-tint-glass" style={{ marginBottom: 'var(--sp-5)' }}>
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Lock size={16} /><h4 style={{ margin: 0 }}>Cambiar contraseña</h4>
             </div>
@@ -245,4 +279,3 @@ export default function Perfil() {
     </div>
   );
 }
-

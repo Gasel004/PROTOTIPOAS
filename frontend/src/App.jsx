@@ -19,6 +19,8 @@ import DetalleNegociacion from './pages/DetalleNegociacion';
 import Entregas           from './pages/Entregas';
 import Pagos              from './pages/Pagos';
 import Perfil             from './pages/Perfil';
+import MiembrosAsociacion from './pages/MiembrosAsociacion';
+import CatalogoProductos from './pages/CatalogoProductos';
 
 import './styles/index.css';
 
@@ -65,6 +67,16 @@ export default function App() {
 
           {/* Perfil */}
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/miembros" element={
+            <PrivateRoute roles={['asociacion']}>
+              <MiembrosAsociacion />
+            </PrivateRoute>
+          } />
+          <Route path="/catalogo" element={
+            <PrivateRoute roles={['asociacion']}>
+              <CatalogoProductos />
+            </PrivateRoute>
+          } />
 
           {/* Publicaciones — todos los roles pueden ver */}
           <Route path="/publicaciones"       element={<Publicaciones />} />
@@ -87,13 +99,29 @@ export default function App() {
             </PrivateRoute>
           } />
 
-          {/* Negociaciones — todos los roles */}
-          <Route path="/negociaciones"      element={<Negociaciones />} />
-          <Route path="/negociaciones/:id"  element={<DetalleNegociacion />} />
+          {/* Negociaciones — participantes directos */}
+          <Route path="/negociaciones"      element={
+            <PrivateRoute roles={['productor', 'comprador']}>
+              <Negociaciones />
+            </PrivateRoute>
+          } />
+          <Route path="/negociaciones/:id"  element={
+            <PrivateRoute roles={['productor', 'comprador']}>
+              <DetalleNegociacion />
+            </PrivateRoute>
+          } />
 
-          {/* Entregas y pagos — todos los roles */}
-          <Route path="/entregas" element={<Entregas />} />
-          <Route path="/pagos"    element={<Pagos />} />
+          {/* Entregas y pagos — participantes directos */}
+          <Route path="/entregas" element={
+            <PrivateRoute roles={['productor', 'comprador']}>
+              <Entregas />
+            </PrivateRoute>
+          } />
+          <Route path="/pagos"    element={
+            <PrivateRoute roles={['productor', 'comprador']}>
+              <Pagos />
+            </PrivateRoute>
+          } />
         </Route>
 
         {/* ── 404 ──────────────────────────────────── */}

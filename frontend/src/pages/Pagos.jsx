@@ -70,7 +70,7 @@ export default function Pagos() {
 
   async function actualizarEstado(id, estado) {
     try {
-      await api.put(`/pagos/Q{id}`, { estado });
+      await api.put(`/pagos/${id}`, { estado });
       setPagos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
     } catch { alert('Error al actualizar estado'); }
   }

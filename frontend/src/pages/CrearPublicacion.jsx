@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
+import { getFullImageUrl } from '../api/utils';
+import { Camera, UploadCloud, Trash2, Loader2, ArrowLeft } from 'lucide-react';
 
 const UNIDADES = ['quintal','libra','kilogramo','caja','docena','unidad','saco','arroba'];
 const DEPTOS = ['Alta Verapaz','Baja Verapaz','Chimaltenango','Chiquimula','El Progreso',
@@ -12,16 +14,93 @@ export default function CrearPublicacion() {
   const navigate = useNavigate();
   const { id } = useParams();
   const esEdicion = Boolean(id);
+  const fileInputRef = useRef(null);
 
   const [catalogo, setCatalogo] = useState([]);
   const [form, setForm] = useState({
     producto_id:'', titulo:'', descripcion:'',
     cantidad_disponible:'', precio_unitario:'', unidad_medida:'quintal',
-    municipio:'', departamento:'',
+    municipio:'', departamento:'', imagen_url:null,
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await uploadFile(files[0]);
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const files = e.target.files;
+    if (files.length > 0) {
+      await uploadFile(files[0]);
+    }
+  };
+
+  const uploadFile = async (file) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('Solo se permiten imágenes JPG, PNG o WebP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe pesar más de 5MB.');
+      return;
+    }
+
+    // Show local preview immediately
+    const blobUrl = URL.createObjectURL(file);
+    setPreviewUrl(blobUrl);
+    setImageError(false);
+
+    const formData = new FormData();
+    formData.append('imagen', file);
+
+    setUploading(true);
+    try {
+      const res = await api.post('/uploads/imagen', formData);
+      if (res.data?.success) {
+        setForm(prev => ({ ...prev, imagen_url: res.data.url }));
+      }
+    } catch (err) {
+      alert(err.response?.data?.message ?? 'Error al subir la imagen');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setForm(prev => ({ ...prev, imagen_url: null }));
+    setImageError(false);
+  }, [previewUrl]);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [form.imagen_url]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
 
   useEffect(() => {
     api.get('/productos').then(r => setCatalogo(r.data?.data ?? mockCatalogo())).catch(() => setCatalogo(mockCatalogo()));
@@ -202,11 +281,70 @@ export default function CrearPublicacion() {
           </div>
         </div>
 
+        <div className="card" style={{ marginBottom:'var(--sp-5)' }}>
+          <div className="card-header"><h4>4. Foto del producto</h4></div>
+          <div className="card-body">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            
+            {previewUrl ? (
+              <div className="image-upload-preview-container">
+                {uploading && (
+                  <div className="image-upload-progress" style={{ position:'absolute', inset:0, zIndex:2, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'rgba(255,255,255,.8)' }}>
+                    <Loader2 size={28} />
+                    <span style={{ fontSize:'.8125rem', marginTop:'var(--sp-2)' }}>Subiendo...</span>
+                  </div>
+                )}
+                <img
+                  src={previewUrl}
+                  alt="Vista previa del producto"
+                  className="image-upload-preview"
+                  onError={() => setImageError(true)}
+                />
+                {imageError && (
+                  <div className="image-upload-overlay" style={{ opacity:1, background:'rgba(0,0,0,.6)' }}>
+                    <p style={{ color:'var(--blanco)', fontSize:'.875rem', marginBottom:'var(--sp-2)' }}>Error al cargar</p>
+                  </div>
+                )}
+                <div className="image-upload-overlay">
+                  <button
+                    type="button"
+                    className="image-upload-delete-btn"
+                    onClick={handleRemoveImage}
+                    title="Eliminar imagen"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`image-upload-zone ${dragOver ? 'dragover' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <UploadCloud size={40} />
+                <div className="image-upload-info">
+                  <h5>Arrastra una foto aquí o haz clic para buscar</h5>
+                  <p>Admite JPG, PNG o WebP. Máximo 5 MB</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
 
         <div style={{ display:'flex', justifyContent:'flex-end', gap:'var(--sp-3)' }}>
           <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? ' Guardando...' : esEdicion ? ' Guardar cambios' : ' Publicar oferta'}
+          <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
+            {saving ? ' Guardando...' : uploading ? ' Subiendo imagen...' : esEdicion ? ' Guardar cambios' : ' Publicar oferta'}
           </button>
         </div>
       </form>
