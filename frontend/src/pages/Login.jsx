@@ -95,9 +95,12 @@ export default function Login() {
       </section>
 
       <section className="auth-field" aria-hidden="true">
-        <div className="sun" />
+        <div className="sun"><div className="glasses" /><div className="hand" /><div className="arm" /><div className="brow" /><div className="cheek" /><div className="nose" /></div>
         <div className="cloud cloud-one" />
         <div className="cloud cloud-two" />
+        <div className="bird bird-1" />
+        <div className="bird bird-2" />
+        <div className="bird bird-3" />
         <div className="field-copy">
           <span>Cosecha conectada</span>
           <strong>Del surco al mercado, sin complicaciones.</strong>

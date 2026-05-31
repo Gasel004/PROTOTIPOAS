@@ -1,6 +1,6 @@
 services:
 
-  # ── Base de datos ──────────────────────────────────────
+  # -- Base de datos   
   db:
     image: postgres:16-alpine
     container_name: laesperanza-db
@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Backend ────────────────────────────────────────────
+  # -- Backend 
   backend:
     build:
       context: ./backend
@@ -42,7 +42,7 @@ services:
       - ./backend:/app
       - /app/node_modules
 
-  # ── Frontend ───────────────────────────────────────────
+  # -- Frontend 
   frontend:
     build:
       context: ./frontend
@@ -56,3 +56,4 @@ services:
 
 volumes:
   pgdata:
+# --(#__#)

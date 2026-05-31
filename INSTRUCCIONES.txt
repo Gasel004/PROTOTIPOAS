@@ -96,7 +96,7 @@ Repositorio: https://github.com/Gasel004/PROTOTIPOAS
   3.4. Acceder al sistema
   -----------------------
 
-    Frontend:  http://localhost
+    Frontend:  http://localhost/8081
     API:       http://localhost:3000/api/v1
 
   3.5. Comandos utiles de Docker

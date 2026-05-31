@@ -38,6 +38,7 @@ async function register({ nombre, telefono, password, rol }) {
     await prisma.asociacion.create({ data: { usuario_id: usuario.id, nombre } });
 
   const token = generarToken(usuario);
+ //DTO
   return { user: { id: usuario.id, nombre: usuario.nombre, telefono: usuario.telefono, rol: usuario.rol }, token };
 }
 
@@ -52,6 +53,7 @@ async function login({ telefono, password }) {
   const ok = await bcrypt.compare(password, usuario.password_hash);
   if (!ok) throw Object.assign(new Error('Credenciales incorrectas'), { status: 401 });
 
+  //
   const token = generarToken(usuario);
   return { user: { id: usuario.id, nombre: usuario.nombre, telefono: usuario.telefono, rol: usuario.rol }, token };
 }
@@ -61,6 +63,7 @@ async function me(id) {
     where: { id },
     include: { productor: true, comprador: true, asociacion: true }
   });
+ //DTO (extrae el hash)
   if (!u) throw Object.assign(new Error('Usuario no encontrado'), { status: 404 });
   const { password_hash, ...rest } = u;
   return rest;

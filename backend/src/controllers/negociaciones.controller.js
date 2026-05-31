@@ -1,9 +1,7 @@
-// ════════════════════════════════════════════════════════════
-// negociaciones.controller.js
-// ════════════════════════════════════════════════════════════
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+//state machine para estados de negociacion
 const TRANSICIONES = {
   pendiente:   ['en_proceso','aceptada','rechazada','cancelada'],
   en_proceso:  ['aceptada','rechazada','cancelada'],
@@ -43,11 +41,13 @@ async function listar(req, res, next) {
     if (u.rol === 'comprador') {
       const c = await prisma.comprador.findUnique({ where:{ usuario_id:u.id } });
       where.comprador_id = c?.id;
+    //strategy (filtro según rol(comprdor vs productor))
     } else if (u.rol === 'productor') {
       const p = await prisma.productor.findUnique({ where:{ usuario_id:u.id } });
       where.productor_id = p?.id;
     }
     if (estado) where.estado = estado;
+   //
     const data = await prisma.negociacion.findMany({ where, include:{ publicacion:{ select:{ titulo:true } }, comprador:{ include:{ usuario:{ select:{ nombre:true } } } }, productor:{ include:{ usuario:{ select:{ nombre:true } } } } }, skip:(page-1)*limit, take:Number(limit), orderBy:{ updated_at:'desc' } });
     res.json({ success:true, data });
   } catch(e) { next(e); }
@@ -93,6 +93,7 @@ async function cambiarEstado(req, res, next) {
     const neg = await prisma.negociacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ comprador:true, productor:true } });
     if (!neg) return res.status(404).json({ success:false, message:'No encontrada' });
     const esParticipante = neg.comprador.usuario_id === req.user.id || neg.productor.usuario_id === req.user.id;
+    //validación de que el usuario sea parte de la negociación (comprador o productor)
     if (!esParticipante) return res.status(403).json({ success:false, message:'Sin permiso' });
     const { estado, precio_acordado, condiciones, fecha_entrega_acordada } = req.body;
     if (!TRANSICIONES[neg.estado]?.includes(estado))

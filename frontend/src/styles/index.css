@@ -855,9 +855,215 @@ tbody tr:hover {
   width: 132px;
   height: 132px;
   border-radius: 50%;
-  background: radial-gradient(circle, #ffe7a8 0%, #e0aa43 62%, rgba(224,170,67,0) 70%);
-  box-shadow: 0 0 60px rgba(224,170,67,.44);
-  animation: sunPulse 5s ease-in-out infinite;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,242,170,.55) 0%, transparent 40%),
+    radial-gradient(circle at 72% 62%, rgba(255,228,115,.35) 0%, transparent 35%),
+    radial-gradient(circle at 50% 50%,
+      #FEF9E0 0%,
+      #FDEA71 10%,
+      #F7C91F 22%,
+      #E1AF19 40%,
+      #D5A51A 54%,
+      #B38C12 68%,
+      #96710E 80%,
+      transparent 92%
+    );
+  box-shadow:
+    0 0 80px 20px rgba(247,201,31,.35),
+    0 0 150px 50px rgba(225,175,25,.2),
+    0 0 200px 80px rgba(179,140,18,.1);
+  animation: sunPulse 6s ease-in-out infinite;
+  will-change: transform;
+}
+.sun::before {
+  content: '';
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, rgba(255,252,225,.75) 0%, transparent 58%);
+}
+.sun::after {
+  content: '';
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 18px;
+  border-bottom: 4px solid rgba(70,35,8,.7);
+  border-radius: 0 0 65% 30%;
+  box-shadow:
+    -2px 14px 3px -8px rgba(60,30,5,.4),
+     20px 12px 3px -8px rgba(60,30,5,.4);
+}
+.glasses {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(calc(-50% - 20px));
+  width: 28px;
+  height: 20px;
+  border-radius: 6px;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.25) 5%, transparent 25%),
+    linear-gradient(180deg, #080300 0%, #2a1a0a 45%, #080300 100%);
+  border: 2px solid #150a03;
+  box-shadow:
+    0 0 0 1.5px rgba(80,40,5,.4),
+    inset 0 0 3px rgba(0,0,0,.3);
+  z-index: 1;
+}
+.glasses::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(100% - 1px);
+  transform: translateY(-50%);
+  width: 12px;
+  height: 4px;
+  background: #150a03;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(80,40,5,.3);
+}
+.glasses::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 40px;
+  width: 28px;
+  height: 20px;
+  border-radius: 6px;
+  background:
+    linear-gradient(210deg, rgba(255,255,255,.22) 4%, transparent 24%),
+    linear-gradient(180deg, #080300 0%, #2a1a0a 45%, #080300 100%);
+  border: 2px solid #150a03;
+  box-shadow:
+    0 0 0 1.5px rgba(80,40,5,.4),
+    inset 0 0 3px rgba(0,0,0,.3);
+}
+.brow {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 54px;
+  height: 0;
+  z-index: 1;
+}
+.brow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 16px;
+  height: 4px;
+  background: #4a2208;
+  border-radius: 3px;
+  transform: rotate(-4deg);
+}
+.brow::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 2px;
+  width: 16px;
+  height: 4px;
+  background: #4a2208;
+  border-radius: 3px;
+  transform: rotate(8deg);
+}
+.cheek {
+  position: absolute;
+  bottom: 32%;
+  left: 10%;
+  width: 18px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(210,100,50,.3) 0%, transparent 70%);
+  z-index: 0;
+}
+.cheek::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 48px;
+  width: 18px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(210,100,50,.3) 0%, transparent 70%);
+}
+.nose {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(150,75,30,.35);
+  z-index: 1;
+}
+.hand {
+  position: absolute;
+  top: 26%;
+  left: -6px;
+  width: 20px;
+  height: 14px;
+  background: linear-gradient(180deg, #D5A51A, #96700E);
+  border-radius: 4px 8px 8px 4px;
+  transform: rotate(-18deg);
+  transform-origin: right center;
+  z-index: 2;
+  box-shadow: -1px 1px 3px rgba(0,0,0,.12);
+  animation: handReach 4s ease-in-out infinite;
+}
+.hand::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  right: 0;
+  width: 7px;
+  height: 12px;
+  background: linear-gradient(180deg, #D5A51A, #96700E);
+  border-radius: 3px 4px 2px 2px;
+  transform: rotate(10deg);
+}
+.hand::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 6px;
+  height: 10px;
+  background: linear-gradient(180deg, #B38C12, #7A580A);
+  border-radius: 3px 3px 2px 2px;
+  transform: rotate(-5deg);
+}
+.arm {
+  position: absolute;
+  bottom: 28%;
+  right: -22px;
+  width: 30px;
+  height: 16px;
+  background: linear-gradient(180deg, #E8BA28, #96700E);
+  border-radius: 8px 4px 12px 8px;
+  transform: rotate(-28deg);
+  transform-origin: left center;
+  z-index: 2;
+  box-shadow: 2px 2px 4px rgba(0,0,0,.18);
+  animation: armBob 2.4s ease-in-out infinite;
+}
+.arm::after {
+  content: '';
+  position: absolute;
+  top: -18px;
+  right: 0;
+  width: 14px;
+  height: 20px;
+  background: linear-gradient(180deg, #E8BA28, #96700E);
+  border-radius: 7px 7px 5px 3px;
+  transform: rotate(6deg);
+  box-shadow: 1px 1px 3px rgba(0,0,0,.14);
 }
 .cloud {
   position: absolute;
@@ -879,6 +1085,49 @@ tbody tr:hover {
 .cloud::after { width: 76px; height: 76px; right: 22px; bottom: 7px; }
 .cloud-one { top: 16%; left: 34%; }
 .cloud-two { top: 27%; left: 78%; transform: scale(.72); animation-duration: 34s; animation-delay: -12s; }
+.bird {
+  position: absolute;
+  width: 14px;
+  height: 5px;
+  z-index: 3;
+  animation: birdSway 7s ease-in-out infinite;
+}
+.bird::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 7px;
+  height: 4px;
+  border-right: 1.5px solid rgba(50,30,12,.45);
+  border-bottom: 1.5px solid rgba(50,30,12,.45);
+  border-radius: 0 0 100% 0;
+  transform: rotate(-22deg);
+  transform-origin: right bottom;
+}
+.bird::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -1px;
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid rgba(50,30,12,.45);
+  border-bottom: 1.5px solid rgba(50,30,12,.45);
+  border-radius: 0 0 0 100%;
+  transform: rotate(22deg);
+  transform-origin: left bottom;
+}
+.bird-1 { top: 12%; left: 22%; animation-delay: -1s; }
+.bird-2 { top: 18%; left: 62%; animation-duration: 9s; animation-delay: -4s; }
+.bird-3 { top: 9%; left: 42%; animation-duration: 8s; animation-delay: -7s; }
+@keyframes birdSway {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-7px); }
+  50% { transform: translateY(-2px); }
+  75% { transform: translateY(-5px); }
+}
+
 .hill {
   position: absolute;
   left: -8%;
@@ -977,8 +1226,18 @@ tbody tr:hover {
 .wheel-big { left: 31px; width: 58px; height: 58px; }
 .wheel-small { right: 18px; width: 42px; height: 42px; bottom: 14px; }
 @keyframes sunPulse {
-  0%, 100% { transform: scale(1); opacity: .94; }
-  50% { transform: scale(1.04); opacity: 1; }
+  0%, 100% { transform: scale(1); opacity: .92; }
+  33% { transform: scale(1.02); opacity: 1; }
+  66% { transform: scale(0.99); opacity: .96; }
+}
+@keyframes armBob {
+  0%, 100% { transform: rotate(-28deg); }
+  50% { transform: rotate(-23deg); }
+}
+@keyframes handReach {
+  0%, 100% { transform: rotate(-18deg) translateX(0); }
+  30% { transform: rotate(-8deg) translateX(-6px); }
+  60% { transform: rotate(-12deg) translateX(-3px); }
 }
 @keyframes drift {
   from { translate: -18vw 0; }
@@ -1256,7 +1515,22 @@ tbody tr:hover { background: var(--gris-50); }
   .auth-brand { margin-bottom: var(--sp-7); }
   .auth-field { min-height: 40vh; }
   .cloud { opacity: .72; }
-  .sun { width: 92px; height: 92px; }
+  .sun { width: 92px; height: 92px; box-shadow: 0 0 50px 12px rgba(247,201,31,.35), 0 0 90px 30px rgba(225,175,25,.2), 0 0 120px 50px rgba(179,140,18,.1); }
+  .sun::after { width: 24px; height: 14px; border-bottom-width: 2.5px; bottom: 18%; box-shadow: -16px 9px 0 -7px rgba(80,40,10,.35), 16px 9px 0 -7px rgba(80,40,10,.35); }
+  .glasses { width: 20px; height: 14px; border-radius: 4px; border-width: 1.5px; top: 24%; }
+  .glasses::before { width: 8px; height: 3px; }
+  .glasses::after { left: 28px; width: 20px; height: 14px; border-radius: 4px; border-width: 1.5px; }
+  .brow { width: 38px; }
+  .brow::before { width: 11px; height: 3px; }
+  .brow::after { width: 11px; height: 3px; top: -3px; }
+  .cheek { width: 13px; height: 7px; left: 8%; bottom: 30%; }
+  .cheek::after { width: 13px; height: 7px; left: 34px; }
+  .arm { width: 21px; height: 11px; right: -15px; bottom: 26%; border-radius: 5px 3px 8px 5px; animation: none; }
+  .arm::after { width: 10px; height: 14px; top: -13px; border-radius: 5px 5px 3px 2px; }
+  .hand { width: 14px; height: 10px; left: -4px; top: 24%; animation: none; }
+  .hand::before { width: 5px; height: 8px; top: -8px; }
+  .hand::after { width: 4px; height: 7px; top: -6px; right: -3px; }
+  .nose { width: 7px; height: 6px; top: 45%; }
   .crop-row-one { display: none; }
   .tractor { left: 30%; bottom: 13%; }
   .dashboard-hero-copy h1 { font-size: 1.75rem; }

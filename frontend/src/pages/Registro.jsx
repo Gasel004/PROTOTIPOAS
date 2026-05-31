@@ -194,9 +194,12 @@ export default function Registro() {
       </section>
 
       <section className="auth-field auth-field-register" aria-hidden="true">
-        <div className="sun" />
+        <div className="sun"><div className="glasses" /><div className="hand" /><div className="arm" /><div className="brow" /><div className="cheek" /><div className="nose" /></div>
         <div className="cloud cloud-one" />
         <div className="cloud cloud-two" />
+        <div className="bird bird-1" />
+        <div className="bird bird-2" />
+        <div className="bird bird-3" />
         <div className="field-copy">
           <span>Red de productores</span>
           <strong>Una cuenta para sembrar confianza y cerrar mejores tratos.</strong>
