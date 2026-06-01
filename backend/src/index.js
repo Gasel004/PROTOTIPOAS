@@ -16,7 +16,8 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use((_req, res, next) => { res.setTimeout(30000, () => { res.status(503).json({ success:false, message:'Tiempo de espera agotado' }); }); next(); });
 // Servir archivos estáticos del directorio uploads
 app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 

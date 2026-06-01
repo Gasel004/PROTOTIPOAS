@@ -34,40 +34,26 @@ export default function DashboardAsociacion() {
   const nombre = user?.nombre ?? 'Asociación';
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       try {
         const [sRes, nRes, mRes] = await Promise.all([
-          api.get('/dashboard/stats').catch(() => ({ data: mockStats() })),
-          api.get('/publicaciones?limit=5').catch(() => ({ data: { data: mockMarket() } })),
-          api.get('/asociaciones/miembros').catch(() => ({ data: { data: mockMembers() } })),
+          api.get('/dashboard/stats', { signal: ac.signal }).catch(() => null),
+          api.get('/publicaciones?limit=5', { signal: ac.signal }).catch(() => null),
+          api.get('/asociaciones/miembros', { signal: ac.signal }).catch(() => null),
         ]);
-        setStats(sRes.data);
-        setRecientes((nRes.data?.data ?? []).map(normalizeMarket));
-        setMiembros(mRes.data?.data ?? []);
-      } finally { setLoading(false); }
+        if (!ac.signal.aborted) {
+          setStats(sRes?.data ?? null);
+          setRecientes((nRes?.data?.data ?? []).map(normalizeMarket));
+          setMiembros(mRes?.data?.data ?? []);
+        }
+      } finally { if (!ac.signal.aborted) setLoading(false); }
     }
     load();
+    return () => ac.abort();
   }, []);
 
-  function mockStats() {
-    return { miembros:8, publicaciones_activas:24, productos_activos:12, notificaciones_no_leidas:0, valor_negociado:48200 };
-  }
-  function mockMarket() {
-    return [
-      { id:1, titulo:'Maíz blanco 50 qq', producto:{ nombre:'Maíz' }, productor:{ usuario:{ nombre:'Juan Pérez' } }, departamento:'Chiquimula', municipio:'Chiquimula' },
-      { id:2, titulo:'Frijol negro seleccionado', producto:{ nombre:'Frijol' }, productor:{ usuario:{ nombre:'María López' } }, departamento:'Zacapa', municipio:'Teculután' },
-      { id:3, titulo:'Tomate cherry 10 cajas', producto:{ nombre:'Tomate' }, productor:{ usuario:{ nombre:'Carlos Ajú' } }, departamento:'Jalapa', municipio:'Jalapa' },
-    ];
-  }
-  function mockMembers() {
-    return [
-      { id:1, usuario:{ nombre:'Juan Pérez', telefono:'4000-0001' }, departamento:'Chiquimula', municipio:'Chiquimula', calificacion:4.8, _count:{ publicaciones:8, negociaciones:5 } },
-      { id:2, usuario:{ nombre:'María López', telefono:'4000-0004' }, departamento:'Zacapa', municipio:'Teculután', calificacion:4.5, _count:{ publicaciones:6, negociaciones:3 } },
-      { id:3, usuario:{ nombre:'Carlos Ajú', telefono:'4000-0005' }, departamento:'Jalapa', municipio:'Mataquescuintla', calificacion:4.9, _count:{ publicaciones:10, negociaciones:6 } },
-    ];
-  }
-
-  const safeStats = stats ?? mockStats();
+  const safeStats = stats ?? { miembros:0, publicaciones_activas:0, productos_activos:0, notificaciones_no_leidas:0, valor_negociado:0 };
   const promedioPublicaciones = safeStats.miembros ? Math.round((safeStats.publicaciones_activas / safeStats.miembros) * 10) / 10 : 0;
 
   if (loading) return (
@@ -118,7 +104,7 @@ export default function DashboardAsociacion() {
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/miembros')}>Gestionar <ArrowRight size={14}/></button>
           </div>
           <div className="member-orbit-list">
-            {(miembros.length ? miembros : mockMembers()).slice(0, 4).map(m => {
+            {miembros.slice(0, 4).map(m => {
               const nombreMiembro = m.usuario?.nombre ?? 'Productor';
               return (
                 <button key={m.id} className="member-orbit-card" onClick={() => navigate('/miembros')}>
@@ -173,7 +159,7 @@ export default function DashboardAsociacion() {
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/publicaciones')}>Ver todo <ArrowRight size={14}/></button>
           </div>
           <div className="association-timeline">
-            {(recientes.length ? recientes : mockMarket().map(normalizeMarket)).slice(0, 5).map(p => (
+            {recientes.slice(0, 5).map(p => (
               <button key={p.id} onClick={() => navigate('/publicaciones/' + p.id)}>
                 <i className="state-aceptada"/>
                 <span><strong>{p.titulo}</strong><small>{p.producto} · {p.productor} · {p.ubicacion}</small></span>

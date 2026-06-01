@@ -124,6 +124,7 @@ export default function MisPublicaciones() {
                           <img
                             src={getFullImageUrl(p.imagen_url)}
                             alt={p.titulo}
+                            loading="lazy"
                             className="table-thumbnail"
                           />
                         ) : (

@@ -4,14 +4,7 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
 
-const MOCK_PUB = {
-  id: 1, titulo: 'Maíz blanco primera calidad', producto: 'Maíz', categoria: 'Granos básicos',
-  precio_unitario: 120, unidad_medida: 'quintal', cantidad_disponible: 80,
-  municipio: 'Chiquimula', departamento: 'Chiquimula', fecha_cosecha: '2025-04-20',
-  descripcion: 'Maíz blanco híbrido H-59, cosecha de temporada lluviosa 2025. Grano grande, bien seco (14% humedad), limpio y seleccionado. Excelente para tortilla y masa.',
-  estado: 'activa', created_at: '2025-04-20', emoji: '',
-  productor: { id: 5, nombre: 'Cooperativa Agrícola San Luis', municipio: 'Chiquimula', departamento: 'Chiquimula', calificacion: 4.8, publicaciones: 12, negociaciones_completadas: 34 },
-};
+
 
 function normalizePub(p) {
   return {
@@ -49,7 +42,7 @@ export default function DetallePublicacion() {
   useEffect(() => {
     api.get(`/publicaciones/${id}`)
       .then(r => setPub(r.data?.data ? normalizePub(r.data.data) : null))
-      .catch(() => setPub(normalizePub(MOCK_PUB)))
+      .catch(() => setPub(null))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -93,6 +86,7 @@ export default function DetallePublicacion() {
                 <img
                   src={getFullImageUrl(pub.imagen_url)}
                   alt={pub.titulo}
+                  loading="lazy"
                   className="detalle-pub-image"
                 />
               </div>

@@ -6,14 +6,6 @@ import { Search, MapPin, Tag, DollarSign, ArrowUpDown, Star, Package } from 'luc
 
 const DEPARTAMENTOS = ['Todos', 'Alta Verapaz', 'Baja Verapaz', 'Chimaltenango', 'Chiquimula', 'El Progreso', 'Escuintla', 'Guatemala', 'Huehuetenango', 'Izabal', 'Jalapa', 'Jutiapa', 'Petén', 'Quetzaltenango', 'Quiché', 'Retalhuleu', 'Sacatepéquez', 'San Marcos', 'Santa Rosa', 'Sololá', 'Suchitepéquez', 'Totonicapán', 'Zacapa'];
 const CATEGORIAS = ['Todos', 'Granos básicos', 'Frutas', 'Verduras', 'Hortalizas', 'Tubérculos', 'Especias'];
-const MOCK_PUBS = [
-  { id: 1, titulo: 'Maíz blanco primera calidad', producto: 'Maíz', categoria: 'Granos básicos', precio_unitario: 120, unidad_medida: 'quintal', cantidad_disponible: 80, municipio: 'Chiquimula', departamento: 'Chiquimula', productor: 'Finca San Luis', calificacion: 4.8 },
-  { id: 2, titulo: 'Frijol negro seleccionado', producto: 'Frijol', categoria: 'Granos básicos', precio_unitario: 280, unidad_medida: 'quintal', cantidad_disponible: 40, municipio: 'Cobán', departamento: 'Alta Verapaz', productor: 'Cooperativa del Norte', calificacion: 4.5 },
-  { id: 3, titulo: 'Tomate manzano fresco', producto: 'Tomate', categoria: 'Verduras', precio_unitario: 85, unidad_medida: 'caja', cantidad_disponible: 120, municipio: 'Antigua', departamento: 'Sacatepéquez', productor: 'Agrícola Antigua', calificacion: 4.9 },
-  { id: 4, titulo: 'Papa blanca extra', producto: 'Papa', categoria: 'Tubérculos', precio_unitario: 95, unidad_medida: 'quintal', cantidad_disponible: 200, municipio: 'Patzicía', departamento: 'Chimaltenango', productor: 'Finca El Rosario', calificacion: 4.7 },
-  { id: 5, titulo: 'Aguacate Hass orgánico', producto: 'Aguacate', categoria: 'Frutas', precio_unitario: 350, unidad_medida: 'caja', cantidad_disponible: 60, municipio: 'San Marcos', departamento: 'San Marcos', productor: 'Orgánica San Marcos', calificacion: 5.0 },
-  { id: 6, titulo: 'Güicoy tierno grande', producto: 'Güicoy', categoria: 'Verduras', precio_unitario: 45, unidad_medida: 'caja', cantidad_disponible: 90, municipio: 'Jalapa', departamento: 'Jalapa', productor: 'Productor Directo', calificacion: 4.3 },
-];
 
 function normalizePub(p) {
   return {
@@ -49,7 +41,7 @@ export default function Publicaciones() {
         const res = await api.get(`/publicaciones?${params}`);
         setPubs((res.data?.data ?? []).map(normalizePub));
       } catch {
-        setPubs(MOCK_PUBS.map(normalizePub));
+        setPubs([]);
       } finally {
         setLoading(false);
       }
@@ -138,6 +130,7 @@ function PubCard({ pub, onClick }) {
           <img
             src={getFullImageUrl(pub.imagen_url)}
             alt={pub.titulo}
+            loading="lazy"
             className="pub-card-image"
             onError={(e) => {
               e.target.onerror = null;

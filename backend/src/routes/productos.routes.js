@@ -1,6 +1,5 @@
 const r = require('express').Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma');
 const { verificarToken, soloRoles } = require('../middleware/auth');
 
 r.get('/', async (req, res, next) => {

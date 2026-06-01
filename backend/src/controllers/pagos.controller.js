@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma');
 
 const ESTADOS_PAGO = ['pendiente', 'completado', 'fallido', 'reembolsado'];
 const METODOS_PAGO = ['efectivo', 'transferencia', 'cheque', 'otro'];
@@ -37,6 +36,8 @@ async function obtenerPagoParticipante(pagoId, userId) {
 async function listar(req, res, next) {
   try {
     const { estado } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const where = {};
     if (estado) where.estado = estado;
 
@@ -48,20 +49,25 @@ async function listar(req, res, next) {
       where.negociacion = { comprador_id:comprador?.id ?? 0 };
     }
 
-    const data = await prisma.pago.findMany({
-      where,
-      include:{
-        negociacion:{
-          include:{
-            publicacion:{select:{titulo:true}},
-            comprador:{include:{usuario:{select:{nombre:true}}}},
-            productor:{include:{usuario:{select:{nombre:true}}}},
+    const [data, total] = await Promise.all([
+      prisma.pago.findMany({
+        where,
+        include:{
+          negociacion:{
+            include:{
+              publicacion:{select:{titulo:true}},
+              comprador:{include:{usuario:{select:{nombre:true}}}},
+              productor:{include:{usuario:{select:{nombre:true}}}},
+            }
           }
-        }
-      },
-      orderBy:{created_at:'desc'}
-    });
-    res.json({ success:true, data });
+        },
+        skip:(page-1)*limit,
+        take:limit,
+        orderBy:{created_at:'desc'}
+      }),
+      prisma.pago.count({ where }),
+    ]);
+    res.json({ success:true, data, pagination:{ page, limit, total } });
   } catch(e) { next(e); }
 }
 

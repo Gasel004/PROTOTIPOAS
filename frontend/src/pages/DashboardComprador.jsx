@@ -19,21 +19,21 @@ export default function DashboardComprador() {
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       try {
         const [sRes, pRes] = await Promise.all([
-          api.get('/dashboard/stats').catch(() => ({ data: { publicaciones_vistas:45, negociaciones_activas:5, entregas_pendientes:1, gasto_mes:8900 } })),
-          api.get('/publicaciones?limit=3').catch(() => ({ data: { data: [
-            { id:1, titulo:'Maíz blanco primera calidad', producto:{ nombre:'Maíz' }, precio_unitario:120, unidad_medida:'quintal', municipio:'Chiquimula', departamento:'Chiquimula', productor:{ usuario:{ nombre:'Juan Pérez' } }, calificacion:4.8 },
-            { id:2, titulo:'Frijol negro seleccionado', producto:{ nombre:'Frijol' }, precio_unitario:280, unidad_medida:'quintal', municipio:'Cobán', departamento:'Alta Verapaz', productor:{ usuario:{ nombre:'Comercial Sur' } }, calificacion:4.5 },
-            { id:3, titulo:'Aguacate Hass orgánico', producto:{ nombre:'Aguacate' }, precio_unitario:350, unidad_medida:'caja', municipio:'San Marcos', departamento:'San Marcos', productor:{ usuario:{ nombre:'Orgánica San Marcos' } }, calificacion:5.0 },
-          ] } })),
+          api.get('/dashboard/stats', { signal: ac.signal }).catch(() => null),
+          api.get('/publicaciones?limit=3', { signal: ac.signal }).catch(() => null),
         ]);
-        setStats(sRes.data);
-        setDestacadas(pRes.data?.data ?? []);
-      } finally { setLoading(false); }
+        if (!ac.signal.aborted) {
+          setStats(sRes?.data ?? null);
+          setDestacadas(pRes?.data?.data ?? []);
+        }
+      } finally { if (!ac.signal.aborted) setLoading(false); }
     }
     load();
+    return () => ac.abort();
   }, []);
 
   if (loading) return (

@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma');
 
 async function stats(req, res, next) {
   try {
@@ -13,10 +12,10 @@ async function stats(req, res, next) {
         prisma.publicacion.count({ where: { productor_id: productor.id, estado: 'activa', eliminada:false } }),
         prisma.negociacion.count({ where: { productor_id: productor.id, estado: { in: ['pendiente', 'en_proceso', 'aceptada'] } } }),
         prisma.entrega.count({ where: { estado: { in: ['pendiente', 'en_transito'] }, negociacion: { productor_id: productor.id } } }),
-        prisma.pago.findMany({ where: { estado: 'completado', negociacion: { productor_id: productor.id } }, select: { monto: true } }),
+        prisma.pago.aggregate({ where: { estado: 'completado', negociacion: { productor_id: productor.id } }, _sum: { monto: true } }),
       ]);
 
-      const ingresos_mes = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+      const ingresos_mes = Number(pagos._sum.monto ?? 0);
       return res.json({ publicaciones, negociaciones_activas, entregas_pendientes, ingresos_mes });
     }
 
@@ -28,10 +27,10 @@ async function stats(req, res, next) {
         prisma.publicacion.count({ where: { estado: 'activa', eliminada:false } }),
         prisma.negociacion.count({ where: { comprador_id: comprador.id, estado: { in: ['pendiente', 'en_proceso', 'aceptada'] } } }),
         prisma.entrega.count({ where: { estado: { in: ['pendiente', 'en_transito'] }, negociacion: { comprador_id: comprador.id } } }),
-        prisma.pago.findMany({ where: { estado: 'completado', negociacion: { comprador_id: comprador.id } }, select: { monto: true } }),
+        prisma.pago.aggregate({ where: { estado: 'completado', negociacion: { comprador_id: comprador.id } }, _sum: { monto: true } }),
       ]);
 
-      const gasto_mes = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+      const gasto_mes = Number(pagos._sum.monto ?? 0);
       return res.json({ publicaciones_vistas, negociaciones_activas, entregas_pendientes, gasto_mes });
     }
 
@@ -49,9 +48,9 @@ async function stats(req, res, next) {
       prisma.negociacion.count({ where: { ...whereProductores, estado: { in: ['pendiente', 'en_proceso', 'aceptada'] } } }),
       prisma.producto.count({ where:{ activo:true } }),
       prisma.notificacion.count({ where:{ usuario_id:id, leida:false } }),
-      prisma.pago.findMany({ where: { estado: 'completado', negociacion: whereProductores }, select: { monto: true } }),
+      prisma.pago.aggregate({ where: { estado: 'completado', negociacion: whereProductores }, _sum: { monto: true } }),
     ]);
-    const valor_negociado = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
+    const valor_negociado = Number(pagos._sum.monto ?? 0);
 
     res.json({ miembros, publicaciones_activas, negociaciones_activas, productos_activos, notificaciones_no_leidas, valor_negociado });
   } catch (e) {

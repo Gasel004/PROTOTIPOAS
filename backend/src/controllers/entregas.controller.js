@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma');
 
 const ESTADOS_ENTREGA = ['pendiente', 'en_transito', 'entregado', 'con_problema'];
 
@@ -31,6 +30,8 @@ async function obtenerEntregaParticipante(entregaId, userId) {
 async function listar(req, res, next) {
   try {
     const u = req.user;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     let negIds = [];
     if (u.rol === 'productor') {
       const p = await prisma.productor.findUnique({ where:{usuario_id:u.id} });
@@ -41,21 +42,27 @@ async function listar(req, res, next) {
       const negs = await prisma.negociacion.findMany({ where:{comprador_id:c?.id ?? 0}, select:{id:true} });
       negIds = negs.map(n=>n.id);
     }
-    const data = await prisma.entrega.findMany({
-      where:{negociacion_id:{in:negIds}},
-      include:{
-        confirmaciones:true,
-        negociacion:{
-          include:{
-            publicacion:{select:{titulo:true}},
-            comprador:{include:{usuario:{select:{nombre:true}}}},
-            productor:{include:{usuario:{select:{nombre:true}}}},
+    const where = {negociacion_id:{in:negIds}};
+    const [data, total] = await Promise.all([
+      prisma.entrega.findMany({
+        where,
+        include:{
+          confirmaciones:true,
+          negociacion:{
+            include:{
+              publicacion:{select:{titulo:true}},
+              comprador:{include:{usuario:{select:{nombre:true}}}},
+              productor:{include:{usuario:{select:{nombre:true}}}},
+            }
           }
-        }
-      },
-      orderBy:{created_at:'desc'}
-    });
-    res.json({ success:true, data });
+        },
+        skip:(page-1)*limit,
+        take:limit,
+        orderBy:{created_at:'desc'}
+      }),
+      prisma.entrega.count({ where }),
+    ]);
+    res.json({ success:true, data, pagination:{ page, limit, total } });
   } catch(e) { next(e); }
 }
 

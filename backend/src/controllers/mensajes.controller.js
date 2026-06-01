@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma');
 
 async function esParticipante(negId, userId) {
   const neg = await prisma.negociacion.findUnique({ where:{id:negId}, include:{comprador:true,productor:true} });

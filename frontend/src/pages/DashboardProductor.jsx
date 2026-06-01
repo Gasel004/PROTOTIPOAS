@@ -19,21 +19,21 @@ export default function DashboardProductor() {
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       try {
         const [sRes, nRes] = await Promise.all([
-          api.get('/dashboard/stats').catch(() => ({ data: { publicaciones:8, negociaciones_activas:3, entregas_pendientes:2, ingresos_mes:12450 } })),
-          api.get('/publicaciones/mis-publicaciones?limit=3').catch(() => ({ data: { data: [
-            { id:1, titulo:'Maíz blanco primera calidad', producto:{ nombre:'Maíz' }, precio_unitario:120, unidad_medida:'quintal', cantidad_disponible:80, estado:'activa' },
-            { id:2, titulo:'Frijol negro seleccionado', producto:{ nombre:'Frijol' }, precio_unitario:280, unidad_medida:'quintal', cantidad_disponible:40, estado:'activa' },
-            { id:3, titulo:'Tomate manzano fresco', producto:{ nombre:'Tomate' }, precio_unitario:85, unidad_medida:'caja', cantidad_disponible:120, estado:'pausada' },
-          ] } })),
+          api.get('/dashboard/stats', { signal: ac.signal }).catch(() => null),
+          api.get('/publicaciones/mis-publicaciones?limit=3', { signal: ac.signal }).catch(() => null),
         ]);
-        setStats(sRes.data);
-        setRecientes(nRes.data?.data ?? []);
-      } finally { setLoading(false); }
+        if (!ac.signal.aborted) {
+          setStats(sRes?.data ?? null);
+          setRecientes(nRes?.data?.data ?? []);
+        }
+      } finally { if (!ac.signal.aborted) setLoading(false); }
     }
     load();
+    return () => ac.abort();
   }, []);
 
   if (loading) return (

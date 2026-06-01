@@ -130,6 +130,12 @@ model Publicacion {
   producto     Producto     @relation(fields: [producto_id], references: [id])
   negociaciones Negociacion[]
 
+  @@index([estado])
+  @@index([eliminada])
+  @@index([departamento])
+  @@index([municipio])
+  @@index([productor_id, estado])
+  @@index([producto_id, estado])
   @@map("publicaciones")
 }
 
@@ -161,6 +167,9 @@ model Negociacion {
   pagos        Pago[]
   calificaciones Calificacion[]
 
+  @@index([estado])
+  @@index([comprador_id, estado])
+  @@index([productor_id, estado])
   @@map("negociaciones")
 }
 
@@ -184,6 +193,9 @@ model Mensaje {
   negociacion   Negociacion @relation(fields: [negociacion_id], references: [id], onDelete: Cascade)
   remitente     Usuario     @relation(fields: [remitente_id], references: [id])
 
+  @@index([negociacion_id, leido])
+  @@index([remitente_id])
+  @@index([leido])
   @@map("mensajes")
 }
 
@@ -201,6 +213,8 @@ model Entrega {
   negociacion     Negociacion @relation(fields: [negociacion_id], references: [id])
   confirmaciones  ConfirmacionEntrega[]
 
+  @@index([negociacion_id, estado])
+  @@index([estado])
   @@map("entregas")
 }
 
@@ -242,6 +256,8 @@ model Pago {
   negociacion  Negociacion @relation(fields: [negociacion_id], references: [id])
   registrador  Usuario?    @relation("PagosRegistrados", fields: [registrado_por], references: [id])
 
+  @@index([negociacion_id])
+  @@index([estado, negociacion_id])
   @@map("pagos")
 }
 
@@ -264,6 +280,8 @@ model Notificacion {
 
   usuario  Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
+  @@index([usuario_id, leida])
+  @@index([usuario_id, created_at])
   @@map("notificaciones")
 }
 

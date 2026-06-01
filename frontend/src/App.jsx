@@ -1,26 +1,34 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import useAuthStore from './store/auth.store';
 
 // Layout
 import Layout from './components/Layout';
 
-// Páginas públicas
-import Login    from './pages/Login';
-import Registro from './pages/Registro';
+// Páginas — lazy load
+const Login              = lazy(() => import('./pages/Login'));
+const Registro           = lazy(() => import('./pages/Registro'));
+const Dashboard          = lazy(() => import('./pages/Dashboard'));
+const Publicaciones      = lazy(() => import('./pages/Publicaciones'));
+const MisPublicaciones   = lazy(() => import('./pages/MisPublicaciones'));
+const CrearPublicacion   = lazy(() => import('./pages/CrearPublicacion'));
+const DetallePublicacion = lazy(() => import('./pages/DetallePublicacion'));
+const Negociaciones      = lazy(() => import('./pages/Negociaciones'));
+const DetalleNegociacion = lazy(() => import('./pages/DetalleNegociacion'));
+const Entregas           = lazy(() => import('./pages/Entregas'));
+const Pagos              = lazy(() => import('./pages/Pagos'));
+const Perfil             = lazy(() => import('./pages/Perfil'));
+const MiembrosAsociacion = lazy(() => import('./pages/MiembrosAsociacion'));
+const CatalogoProductos  = lazy(() => import('./pages/CatalogoProductos'));
 
-// Páginas privadas
-import Dashboard          from './pages/Dashboard';
-import Publicaciones      from './pages/Publicaciones';
-import MisPublicaciones   from './pages/MisPublicaciones';
-import CrearPublicacion   from './pages/CrearPublicacion';
-import DetallePublicacion from './pages/DetallePublicacion';
-import Negociaciones      from './pages/Negociaciones';
-import DetalleNegociacion from './pages/DetalleNegociacion';
-import Entregas           from './pages/Entregas';
-import Pagos              from './pages/Pagos';
-import Perfil             from './pages/Perfil';
-import MiembrosAsociacion from './pages/MiembrosAsociacion';
-import CatalogoProductos from './pages/CatalogoProductos';
+const Loader = () => (
+  <div style={{
+    minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+    background:'var(--verde-50)',
+  }}>
+    <div className="spinner" />
+  </div>
+);
 
 import './styles/index.css';
 
@@ -43,6 +51,7 @@ function PublicRoute({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<Loader />}>
       <Routes>
 
         {/* ── Rutas públicas ───────────────────────── */}
@@ -143,6 +152,7 @@ export default function App() {
         } />
 
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

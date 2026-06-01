@@ -7,4 +7,4 @@ COPY . .
 RUN npx prisma generate
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push && npx prisma db seed && node src/index.js"]
+CMD ["sh", "-c", "npx prisma db push && node src/index.js"]
