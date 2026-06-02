@@ -28,7 +28,11 @@ export default function Login() {
       setAuth(user, token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Credenciales incorrectas');
+      if (!err.response) {
+        setError('No se pudo contactar al servidor. Verifica tu conexión.');
+      } else {
+        setError(err.response.data?.message ?? 'Credenciales incorrectas');
+      }
     } finally { setLoading(false); }
   }
 
