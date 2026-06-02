@@ -2,22 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
-
-const MOCK_NEG = {
-  id: 1, titulo: 'Maíz blanco 50 qq', estado: 'aceptada', precio_acordado: 120,
-  cantidad_solicitada: 50, unidad_medida: 'quintal', condiciones: 'Pago al contado, recojo en finca',
-  fecha_entrega_acordada: '2025-05-20', created_at: '2025-05-08',
-  publicacion: { id: 1, titulo: 'Maíz blanco primera calidad', departamento: 'Chiquimula' },
-  productor: { id: 5, nombre: 'Juan Pérez', email: 'juan@finca.com' },
-  comprador: { id: 3, nombre: 'Comercial Sur S.A.', email: 'compras@comercialsur.com' },
-};
-
-const MOCK_MSGS = [
-  { id: 1, remitente_id: 3, remitente: 'Comercial Sur S.A.', contenido: 'Hola, ¿puede entregar el lunes 20 de mayo?', created_at: '2025-05-08 09:12', leido: true },
-  { id: 2, remitente_id: 5, remitente: 'Juan Pérez', contenido: 'Sí, sin problema. ¿A qué hora?', created_at: '2025-05-08 10:30', leido: true },
-  { id: 3, remitente_id: 3, remitente: 'Comercial Sur S.A.', contenido: 'Perfectamente desde las 7am. Llevaremos camión propio.', created_at: '2025-05-08 11:05', leido: true },
-  { id: 4, remitente_id: 5, remitente: 'Juan Pérez', contenido: 'De acuerdo. El maíz estará listo y ensacado. Nos vemos.', created_at: '2025-05-08 11:20', leido: false },
-];
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const ESTADO_SIGUIENTES = {
   pendiente: [{ estado: 'aceptada', label: ' Aceptar', cls: 'btn-primary' }, { estado: 'rechazada', label: ' Rechazar', cls: 'btn-danger' }],
@@ -68,11 +53,16 @@ export default function DetalleNegociacion() {
   const [neg, setNeg] = useState(null);
   const [msgs, setMsgs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [texto, setTexto] = useState('');
   const [sending, setSending] = useState(false);
   const [modalAcept, setModalAcept] = useState(false);
+  const cerrarModalAcept = () => { if (!sending) setModalAcept(false); };
+  const modalAceptRef = useModalA11y(modalAcept, cerrarModalAcept);
   const [precioForm, setPrecioForm] = useState('');
   const [chatLive, setChatLive] = useState(false);
+  const [estadoError, setEstadoError] = useState('');
+  const [sendError, setSendError] = useState('');
 
   const cargarMensajes = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -91,46 +81,76 @@ export default function DetalleNegociacion() {
   }, [id]);
 
   useEffect(() => {
+    const ac = new AbortController();
+    setLoading(true);
+    setLoadError(null);
     Promise.all([
-      api.get(`/negociaciones/${id}`).catch(() => ({ data: { data: MOCK_NEG } })),
-      api.get(`/negociaciones/${id}/mensajes`).catch(() => ({ data: { data: MOCK_MSGS } })),
+      api.get(`/negociaciones/${id}`, { signal: ac.signal }),
+      api.get(`/negociaciones/${id}/mensajes`, { signal: ac.signal }),
     ]).then(([nRes, mRes]) => {
-      setNeg(normalizeNeg(nRes.data?.data ?? MOCK_NEG));
-      setMsgs((mRes.data?.data ?? MOCK_MSGS).map(normalizeMsg));
+      if (ac.signal.aborted) return;
+      setNeg(nRes.data?.data ? normalizeNeg(nRes.data.data) : null);
+      setMsgs((mRes.data?.data ?? []).map(normalizeMsg));
       setChatLive(true);
-    }).finally(() => setLoading(false));
+    }).catch(err => {
+      if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+      setLoadError(err.response?.data?.message ?? 'No se pudo cargar la negociación');
+      setNeg(null);
+    }).finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, [id]);
 
   useEffect(() => {
-    pollingRef.current = window.setInterval(() => {
-      if (document.visibilityState === 'visible') cargarMensajes({ silent: true });
-    }, 2000);
-
+    const start = () => {
+      if (pollingRef.current) return;
+      pollingRef.current = window.setInterval(() => {
+        if (document.visibilityState === 'visible') cargarMensajes({ silent: true });
+      }, 2000);
+    };
+    const stop = () => {
+      if (pollingRef.current) { window.clearInterval(pollingRef.current); pollingRef.current = null; }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { cargarMensajes({ silent: true }); start(); }
+      else stop();
+    };
     const onFocus = () => cargarMensajes({ silent: true });
+
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
 
     return () => {
-      window.clearInterval(pollingRef.current);
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
     };
   }, [cargarMensajes]);
 
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    const el = chatRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (isAtBottom) el.scrollTop = el.scrollHeight;
   }, [msgs]);
 
   async function enviarMensaje() {
     if (!texto.trim()) return;
     setSending(true);
-    const optimista = { id: Date.now(), remitente_id: user?.id, remitente: user?.nombre, contenido: texto, created_at: 'Ahora', leido: false };
+    setSendError('');
+    const textoEnviar = texto;
+    const optimista = { id: Date.now(), remitente_id: user?.id, remitente: user?.nombre, contenido: textoEnviar, created_at: 'Ahora', leido: false };
     setMsgs(prev => [...prev, optimista]);
     setTexto('');
     try {
-      const res = await api.post(`/negociaciones/${id}/mensajes`, { contenido: texto });
+      const res = await api.post(`/negociaciones/${id}/mensajes`, { contenido: textoEnviar });
       setMsgs(prev => prev.map(m => m.id === optimista.id ? normalizeMsg(res.data?.data ?? m) : m));
       cargarMensajes({ silent: true });
-    } catch { setMsgs(prev => prev.filter(m => m.id !== optimista.id)); }
-    finally { setSending(false); }
+    } catch (err) {
+      setMsgs(prev => prev.filter(m => m.id !== optimista.id));
+      setTexto(textoEnviar);
+      setSendError(err.response?.data?.message ?? 'No se pudo enviar el mensaje');
+    } finally { setSending(false); }
   }
 
   async function cambiarEstado(nuevoEstado, extras = {}) {
@@ -138,10 +158,13 @@ export default function DetalleNegociacion() {
       await api.patch(`/negociaciones/${id}/estado`, { estado: nuevoEstado, ...extras });
       setNeg(prev => ({ ...prev, estado: nuevoEstado, ...extras }));
       setModalAcept(false);
-    } catch (err) { alert(err.response?.data?.message ?? 'Error'); }
+    } catch (err) {
+      setEstadoError(err.response?.data?.message ?? 'No se pudo cambiar el estado');
+    }
   }
 
   if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  if (loadError) return <div className="empty-state card"><h3>No se pudo cargar la negociación</h3><p>{loadError}</p></div>;
   if (!neg) return <div className="empty-state"><h3>Negociación no encontrada</h3></div>;
 
   const isProductor = user?.rol === 'productor';
@@ -159,6 +182,10 @@ export default function DetalleNegociacion() {
       <div style={{ marginBottom: 'var(--sp-4)' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate('/negociaciones')}> Volver a negociaciones</button>
       </div>
+
+      {estadoError && (
+        <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{estadoError}</div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--sp-6)', alignItems: 'start' }}>
 
@@ -238,6 +265,9 @@ export default function DetalleNegociacion() {
                   {sending ? 'Enviando...' : 'Enviar'}
                 </button>
               </div>
+              {sendError && (
+                <div className="alert alert-error" style={{ marginTop: 'var(--sp-2)' }} role="alert">{sendError}</div>
+              )}
             </div>
           </div>
         </div>
@@ -314,11 +344,11 @@ export default function DetalleNegociacion() {
 
       {/* Modal aceptar */}
       {modalAcept && (
-        <div className="modal-overlay" onClick={() => setModalAcept(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={cerrarModalAcept}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={modalAceptRef}>
             <div className="modal-header">
               <h3> Aceptar negociación</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setModalAcept(false)}></button>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalAcept} disabled={sending}></button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -337,7 +367,7 @@ export default function DetalleNegociacion() {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setModalAcept(false)}>Cancelar</button>
+              <button className="btn btn-ghost" onClick={cerrarModalAcept} disabled={sending}>Cancelar</button>
               <button className="btn btn-primary"
                 onClick={() => cambiarEstado('aceptada', { precio_acordado: Number(precioForm) })}
                 disabled={!precioForm}>

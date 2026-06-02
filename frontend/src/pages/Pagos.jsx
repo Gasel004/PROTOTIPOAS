@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from '../components/Pagination';
+import { TableSkeleton } from '../components/skeletons';
+import { useModalA11y } from '../hooks/useModalA11y';
 import useAuthStore from '../store/auth.store';
 import { CreditCard, CheckCircle, Clock, XCircle, RefreshCw, PlusCircle, DollarSign } from 'lucide-react';
 
-const MOCK = [
-  { id: 1, negociacion_id: 1, titulo_neg: 'Maíz blanco 50 qq', monto: 6000, metodo_pago: 'transferencia', referencia: 'TRF-20250510-001', estado: 'completado', fecha_pago: '2025-05-10', contraparte: 'Comercial Sur S.A.' },
-  { id: 2, negociacion_id: 5, titulo_neg: 'Aguacate Hass 15 cajas', monto: 5250, metodo_pago: 'cheque', referencia: 'CHQ-0042', estado: 'pendiente', fecha_pago: null, contraparte: 'ExportFresh' },
-  { id: 3, negociacion_id: 3, titulo_neg: 'Tomate cherry 10 cajas', monto: 900, metodo_pago: 'efectivo', referencia: null, estado: 'completado', fecha_pago: '2025-05-01', contraparte: 'Mercado Central' },
-  { id: 4, negociacion_id: 2, titulo_neg: 'Frijol negro 20 qq', monto: 5600, metodo_pago: 'transferencia', referencia: 'TRF-20250508-003', estado: 'fallido', fecha_pago: null, contraparte: 'Juan García' },
-];
 const METODOS = ['efectivo', 'transferencia', 'cheque', 'otro'];
 const ESTADO_CFG = {
   pendiente:   { badge: 'badge-oro',   icon: <Clock size={13} />,       label: 'Pendiente' },
@@ -37,45 +35,76 @@ export default function Pagos() {
   const { user } = useAuthStore();
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
   const [modalNew, setModalNew] = useState(false);
+  const cerrarModalNew = () => { if (!saving) setModalNew(false); };
+  const modalNewRef = useModalA11y(modalNew, cerrarModalNew);
   const [form, setForm] = useState({ negociacion_id: '', monto: '', metodo_pago: 'efectivo', referencia: '', fecha_pago: '', notas: '' });
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    api.get('/pagos')
+    const ac = new AbortController();
+    setLoading(true);
+    setError('');
+    api.get('/pagos', { signal: ac.signal })
       .then(r => setPagos((r.data?.data ?? []).map(p => normalizePago(p, user))))
-      .catch(() => setPagos(MOCK.map(p => normalizePago(p, user))))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setError(err.response?.data?.message ?? 'No se pudieron cargar los pagos');
+        setPagos([]);
+      })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, []);
 
-  const totales = {
+  const totales = useMemo(() => ({
     completado: pagos.filter(p => p.estado === 'completado').reduce((s, p) => s + p.monto, 0),
     pendiente:  pagos.filter(p => p.estado === 'pendiente').reduce((s, p) => s + p.monto, 0),
-  };
-  const filtrados = filtro === 'Todos' ? pagos : pagos.filter(p => p.estado === filtro);
+  }), [pagos]);
+  const filtrados = useMemo(() => filtro === 'Todos' ? pagos : pagos.filter(p => p.estado === filtro), [pagos, filtro]);
+  const pag = usePagination(filtrados, 10);
+
+  function abrirModalNuevo() {
+    setForm({ negociacion_id: '', monto: '', metodo_pago: 'efectivo', referencia: '', fecha_pago: '', notas: '' });
+    setFormErrors({});
+    setSaveError('');
+    setModalNew(true);
+  }
 
   async function guardarPago(e) {
     e.preventDefault();
-    if (!form.negociacion_id || !form.monto || Number(form.monto) <= 0) { alert('Negociación y monto son requeridos'); return; }
+    const errs = {};
+    if (!form.negociacion_id) errs.negociacion_id = 'Requerido';
+    if (!form.monto || Number(form.monto) <= 0) errs.monto = 'Ingresa un monto válido';
+    if (Object.keys(errs).length) { setFormErrors(errs); return; }
+    setFormErrors({});
+    setSaveError('');
     setSaving(true);
     try {
       const res = await api.post('/pagos', { ...form, negociacion_id: Number(form.negociacion_id), monto: Number(form.monto) });
       setPagos(prev => [res.data?.data ?? { ...form, id: Date.now(), estado: 'pendiente' }, ...prev]);
       setModalNew(false);
-      setForm({ negociacion_id: '', monto: '', metodo_pago: 'efectivo', referencia: '', fecha_pago: '', notas: '' });
-    } catch (err) { alert(err.response?.data?.message ?? 'Error al registrar pago'); }
-    finally { setSaving(false); }
+    } catch (err) {
+      setSaveError(err.response?.data?.message ?? 'No se pudo registrar el pago');
+    } finally { setSaving(false); }
   }
 
   async function actualizarEstado(id, estado) {
+    const previo = pagos.find(p => p.id === id)?.estado;
+    if (!previo) return;
+    setPagos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
     try {
       await api.put(`/pagos/${id}`, { estado });
-      setPagos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
-    } catch { alert('Error al actualizar estado'); }
+    } catch (err) {
+      setPagos(prev => prev.map(p => p.id === id ? { ...p, estado: previo } : p));
+      setError(err.response?.data?.message ?? 'No se pudo actualizar el estado del pago');
+    }
   }
 
-  if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  if (loading) return <TableSkeleton rows={6} cols={5} />;
 
   return (
     <div className="animate-fade-in-up">
@@ -84,11 +113,13 @@ export default function Pagos() {
           <h1>Pagos</h1>
           <p className="text-muted">{pagos.length} pago{pagos.length !== 1 ? 's' : ''} registrado{pagos.length !== 1 ? 's' : ''}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setModalNew(true)}
+        <button className="btn btn-primary" onClick={abrirModalNuevo}
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <PlusCircle size={16} /> Registrar pago
         </button>
       </div>
+
+      {error && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-5)' }}>{error}</div>}
 
       <div className="grid-2" style={{ marginBottom: 'var(--sp-6)' }}>
         <div className="stat-card">
@@ -110,7 +141,7 @@ export default function Pagos() {
       <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-5)', flexWrap: 'wrap' }}>
         {['Todos', 'pendiente', 'completado', 'fallido', 'reembolsado'].map(e => (
           <button key={e} className={filtro === e ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-            onClick={() => setFiltro(e)}>
+            onClick={() => { setFiltro(e); pag.reset(); }}>
             {e === 'Todos' ? 'Todos' : ESTADO_CFG[e]?.label ?? e}
           </button>
         ))}
@@ -128,7 +159,7 @@ export default function Pagos() {
                 <tr><th>Negociación</th><th>Contraparte</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr>
               </thead>
               <tbody>
-                {filtrados.map(p => {
+                {pag.pageItems.map(p => {
                   const cfg = ESTADO_CFG[p.estado] ?? { badge: 'badge-gris', icon: null, label: p.estado };
                   return (
                     <tr key={p.id}>
@@ -162,22 +193,27 @@ export default function Pagos() {
                 })}
               </tbody>
             </table>
+            <Pagination page={pag.page} totalPages={pag.totalPages} total={pag.total}
+              onPrev={pag.prev} onNext={pag.next} onSetPage={pag.setPage} label="pagos" />
           </div>
       }
 
       {modalNew && (
-        <div className="modal-overlay" onClick={() => !saving && setModalNew(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={cerrarModalNew}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={modalNewRef}>
             <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CreditCard size={18} /> Registrar pago</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setModalNew(false)} disabled={saving}>✕</button>
+              <h3>Registrar pago</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNew} disabled={saving}>✕</button>
             </div>
-            <form onSubmit={guardarPago}>
+            <form onSubmit={guardarPago} noValidate>
               <div className="modal-body">
+                {saveError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{saveError}</div>}
                 <div className="form-group">
                   <label className="form-label">ID de Negociación <span style={{ color: 'var(--rojo)' }}>*</span></label>
                   <input className="form-input" type="number" placeholder="Ej: 1" value={form.negociacion_id}
-                    onChange={e => setForm(f => ({ ...f, negociacion_id: e.target.value }))} />
+                    onChange={e => setForm(f => ({ ...f, negociacion_id: e.target.value }))}
+                    aria-invalid={formErrors.negociacion_id ? 'true' : 'false'} />
+                  {formErrors.negociacion_id && <p className="form-error">{formErrors.negociacion_id}</p>}
                 </div>
                 <div className="grid-2">
                   <div className="form-group">
@@ -185,8 +221,10 @@ export default function Pagos() {
                     <div className="input-group">
                       <span className="input-prefix">Q</span>
                       <input className="form-input" type="number" min="0.01" step="0.01" placeholder="0.00"
-                        value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} />
+                        value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
+                        aria-invalid={formErrors.monto ? 'true' : 'false'} />
                     </div>
+                    {formErrors.monto && <p className="form-error">{formErrors.monto}</p>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Método <span style={{ color: 'var(--rojo)' }}>*</span></label>
@@ -214,7 +252,7 @@ export default function Pagos() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setModalNew(false)} disabled={saving}>Cancelar</button>
+                <button type="button" className="btn btn-ghost" onClick={cerrarModalNew} disabled={saving}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}
                   style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <DollarSign size={15} /> {saving ? 'Guardando...' : 'Registrar pago'}

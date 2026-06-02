@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef, useEffect } from 'react';
 import useAuthStore from './store/auth.store';
+import { Leaf } from 'lucide-react';
 
 // Layout
 import Layout from './components/Layout';
+import ScrollToTop from './components/ScrollToTop';
 
 // Páginas — lazy load
 const Login              = lazy(() => import('./pages/Login'));
@@ -22,11 +24,11 @@ const MiembrosAsociacion = lazy(() => import('./pages/MiembrosAsociacion'));
 const CatalogoProductos  = lazy(() => import('./pages/CatalogoProductos'));
 
 const Loader = () => (
-  <div style={{
-    minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-    background:'var(--verde-50)',
-  }}>
-    <div className="spinner" />
+  <div className="loader-theme">
+    <div className="loader-theme-icon">
+      <Leaf />
+    </div>
+    <span>Cargando...</span>
   </div>
 );
 
@@ -51,6 +53,9 @@ function PublicRoute({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <div className="grain-overlay" aria-hidden="true" />
+      <div id="sr-announcer" className="sr-announcer" aria-live="polite" aria-atomic="true" />
+      <ScrollToTop />
       <Suspense fallback={<Loader />}>
       <Routes>
 

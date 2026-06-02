@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import {
@@ -41,9 +41,11 @@ const PAGE_TITLES = {
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const path = window.location.pathname;
-  const pageTitle = PAGE_TITLES[path] ?? 'La Esperanza';
+  const notifBtnRef = useRef(null);
+  const notifDropdownRef = useRef(null);
+  const pageTitle = PAGE_TITLES[location.pathname] ?? 'La Esperanza';
   const items = NAV_ITEMS[user?.rol] ?? NAV_ITEMS.comprador;
   const initials = user?.nombre ? user.nombre.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase() : 'U';
   const roleLabel = { productor:'Productor', comprador:'Comprador', asociacion:'Asociación' };
@@ -54,7 +56,7 @@ export default function Layout() {
 
   useEffect(() => {
     if (!user) return;
-    
+
     const fetchNotifications = async () => {
       try {
         const res = await api.get('/notificaciones');
@@ -67,19 +69,46 @@ export default function Layout() {
       }
     };
 
+    let interval = null;
+    const start = () => {
+      if (interval) return;
+      interval = setInterval(fetchNotifications, 20000);
+    };
+    const stop = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { fetchNotifications(); start(); }
+      else stop();
+    };
+
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 20000);
-    return () => clearInterval(interval);
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [user]);
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      setDropdownOpen(false);
+    const handleClickOutside = (e) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target) &&
+          notifBtnRef.current && !notifBtnRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setDropdownOpen(false);
     };
     if (dropdownOpen) {
       document.addEventListener('click', handleClickOutside);
+      document.addEventListener('keydown', handleEsc);
     }
-    return () => document.removeEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
   }, [dropdownOpen]);
 
   const handleMarkAsRead = async (id, leida) => {
@@ -112,19 +141,19 @@ export default function Layout() {
     <div className="app-layout">
       {mobileOpen && <div className="mobile-nav-backdrop" onClick={() => setMobileOpen(false)} />}
 
-      <aside className={`sidebar app-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
-        <button className="mobile-close" onClick={() => setMobileOpen(false)} title="Cerrar menú">
+      <aside className={`sidebar app-sidebar ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Menú lateral">
+        <button className="mobile-close" onClick={() => setMobileOpen(false)} title="Cerrar menú" aria-label="Cerrar menú de navegación">
           <X size={20} />
         </button>
         <div className="sidebar-brand">
-          <Leaf size={22} strokeWidth={2} style={{ color:'var(--verde-300)', flexShrink:0 }} />
+          <Leaf size={22} strokeWidth={2} style={{ color:'var(--verde-300)', flexShrink:0 }} aria-hidden="true" />
           <div>
             <h2 style={{ margin:0 }}>La Esperanza</h2>
             <span>Gestión Agrícola</span>
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Navegación principal">
           <div className="nav-section-label">Menú principal</div>
           {items.map(item => (
             <NavLink key={item.to} to={item.to}
@@ -155,22 +184,22 @@ export default function Layout() {
 
       <header className="topbar app-topbar">
         <div className="topbar-left">
-          <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} title="Abrir menú">
-            <Menu size={20} />
+          <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} title="Abrir menú" aria-label="Abrir menú de navegación">
+            <Menu size={20} aria-hidden="true" />
           </button>
           <span className="topbar-title">{pageTitle}</span>
         </div>
         <div className="topbar-actions">
           <div className="notif-dropdown-container" onClick={e => e.stopPropagation()}>
-            <button className="notif-btn" title="Notificaciones" onClick={() => setDropdownOpen(!dropdownOpen)}>
-              <Bell size={20} />
-              {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+            <button ref={notifBtnRef} className="notif-btn" title="Notificaciones" aria-label={`Notificaciones${unreadCount > 0 ? `, ${unreadCount} sin leer` : ''}`} aria-expanded={dropdownOpen} onClick={() => setDropdownOpen(!dropdownOpen)}>
+              <Bell size={20} aria-hidden="true" />
+              {unreadCount > 0 && <span className="notif-badge" aria-hidden="true">{unreadCount}</span>}
             </button>
             
             {dropdownOpen && (
-              <div className="notif-dropdown">
+              <div ref={notifDropdownRef} className="notif-dropdown" role="dialog" aria-label="Notificaciones" aria-live="polite">
                 <div className="notif-dropdown-header">
-                  <h4>Notificaciones</h4>
+                  <h4 id="notif-heading">Notificaciones</h4>
                   {unreadCount > 0 && (
                     <button className="notif-dropdown-clear" onClick={handleMarkAllAsRead}>
                       Marcar todo leído
@@ -178,10 +207,10 @@ export default function Layout() {
                   )}
                 </div>
                 
-                <div className="notif-dropdown-list">
+                <div className="notif-dropdown-list" role="list" aria-labelledby="notif-heading">
                   {notifications.length === 0 ? (
-                    <div className="notif-empty animate-fade-in">
-                      <Bell size={24} style={{ color: 'var(--gris-400)' }} />
+                    <div className="notif-empty animate-fade-in" role="status">
+                      <Bell size={24} style={{ color: 'var(--gris-400)' }} aria-hidden="true" />
                       <p>No tienes notificaciones</p>
                     </div>
                   ) : (
@@ -190,6 +219,10 @@ export default function Layout() {
                         key={n.id}
                         className={`notif-item ${!n.leida ? 'unread' : ''}`}
                         onClick={() => handleMarkAsRead(n.id, n.leida)}
+                        role="listitem"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleMarkAsRead(n.id, n.leida); }}
+                        aria-label={`${n.titulo}: ${n.mensaje}${!n.leida ? ', sin leer' : ''}`}
                       >
                         <div className="notif-item-content">
                           <div className="notif-item-title">{n.titulo}</div>
@@ -211,11 +244,11 @@ export default function Layout() {
               </div>
             )}
           </div>
-          <NavLink to="/perfil" className="btn btn-ghost btn-sm">{initials}</NavLink>
+          <NavLink to="/perfil" className="btn btn-ghost btn-sm" aria-label="Ir a mi perfil">{initials}</NavLink>
         </div>
       </header>
 
-      <main className="app-content"><Outlet /></main>
+      <main id="main-content" className="app-content"><div className="page-enter"><Outlet /></div></main>
 
       <nav className="mobile-bottom-nav">
         {items.slice(0, 4).map(item => (

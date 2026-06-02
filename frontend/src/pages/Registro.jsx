@@ -100,30 +100,35 @@ export default function Registro() {
         </div>
 
         {error && (
-          <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>
+          <div id="registro-error" className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }} role="alert">
             {error}
           </div>
         )}
 
         {step === 1 && (
           <div>
-            <h3 className="auth-section-title">
+            <h3 className="auth-section-title" id="rol-heading">
               ¿Cómo usarás la plataforma?
             </h3>
-            <div className="role-list">
+            <div className="role-list" role="radiogroup" aria-labelledby="rol-heading">
               {ROLES.map(r => {
                 const isSelected = form.rol === r.value;
                 return (
                   <div key={r.value}
                     onClick={() => { setForm(f => ({ ...f, rol: r.value })); setError(''); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setForm(f => ({ ...f, rol: r.value })); setError(''); } }}
                     className={`role-option ${isSelected ? 'selected' : ''}`}
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    aria-label={r.label}
                   >
                     <div>
                       <strong>{r.label}</strong>
                       <p>{r.desc}</p>
                     </div>
                     {isSelected && (
-                      <div className="role-check">
+                      <div className="role-check" aria-hidden="true">
                         <Check size={12} strokeWidth={3} />
                       </div>
                     )}
@@ -139,41 +144,45 @@ export default function Registro() {
         )}
 
         {step === 2 && (
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <h3 className="auth-section-title">
               Crea tu credencial de acceso
             </h3>
             
             <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <User size={14} /> Nombre completo <span style={{ color: 'var(--rojo)' }}>*</span>
+              <label className="form-label" htmlFor="reg-nombre" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <User size={14} aria-hidden="true" /> Nombre completo <span aria-hidden="true">*</span>
               </label>
-              <input className="form-input" name="nombre" value={form.nombre}
-                onChange={handleChange} placeholder="Tu nombre completo" autoFocus />
+              <input id="reg-nombre" className="form-input" name="nombre" value={form.nombre}
+                onChange={handleChange} placeholder="Tu nombre completo" autoFocus
+                aria-required="true" aria-invalid={error && !form.nombre.trim() ? 'true' : 'false'} />
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Phone size={14} /> Número de teléfono <span style={{ color: 'var(--rojo)' }}>*</span>
+              <label className="form-label" htmlFor="reg-telefono" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Phone size={14} aria-hidden="true" /> Número de teléfono <span aria-hidden="true">*</span>
               </label>
-              <input className="form-input" type="tel" name="telefono" value={form.telefono}
-                onChange={handleChange} placeholder="4256-1234" maxLength={9} />
+              <input id="reg-telefono" className="form-input" type="tel" name="telefono" value={form.telefono}
+                onChange={handleChange} placeholder="4256-1234" maxLength={9}
+                aria-required="true" aria-invalid={error && !/^\d{4}-\d{4}$/.test(form.telefono) ? 'true' : 'false'} />
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Lock size={14} /> Contraseña <span style={{ color: 'var(--rojo)' }}>*</span>
+              <label className="form-label" htmlFor="reg-password" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Lock size={14} aria-hidden="true" /> Contraseña <span aria-hidden="true">*</span>
               </label>
-              <input className="form-input" type="password" name="password" value={form.password}
-                onChange={handleChange} placeholder="Mínimo 8 caracteres" />
+              <input id="reg-password" className="form-input" type="password" name="password" value={form.password}
+                onChange={handleChange} placeholder="Mínimo 8 caracteres"
+                aria-required="true" aria-invalid={error && form.password.length < 8 ? 'true' : 'false'} />
             </div>
 
             <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Lock size={14} /> Confirmar contraseña <span style={{ color: 'var(--rojo)' }}>*</span>
+              <label className="form-label" htmlFor="reg-confirmar" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Lock size={14} aria-hidden="true" /> Confirmar contraseña <span aria-hidden="true">*</span>
               </label>
-              <input className="form-input" type="password" name="confirmar" value={form.confirmar}
-                onChange={handleChange} placeholder="Repite tu contraseña" />
+              <input id="reg-confirmar" className="form-input" type="password" name="confirmar" value={form.confirmar}
+                onChange={handleChange} placeholder="Repite tu contraseña"
+                aria-required="true" aria-invalid={error && form.password !== form.confirmar ? 'true' : 'false'} />
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)' }}>
