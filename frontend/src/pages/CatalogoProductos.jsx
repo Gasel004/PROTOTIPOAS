@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import api from '../api/client';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { PlusCircle, Package, Pencil, CheckCircle, XCircle, Save, Search } from 'lucide-react';
 
 const EMPTY = { nombre:'', categoria:'', unidad_medida:'quintal', descripcion:'', activo:true };
@@ -68,7 +69,11 @@ export default function CatalogoProductos() {
     } finally { setSaving(false); }
   }
 
-  const filtrados = productos.filter(p => !search || p.nombre.toLowerCase().includes(search.toLowerCase()) || (p.categoria ?? '').toLowerCase().includes(search.toLowerCase()));
+  const searchDebounced = useDebouncedValue(search, 300);
+  const filtrados = useMemo(() => {
+    const q = searchDebounced.toLowerCase();
+    return productos.filter(p => !q || p.nombre.toLowerCase().includes(q) || (p.categoria ?? '').toLowerCase().includes(q));
+  }, [productos, searchDebounced]);
 
   return (
     <div className="animate-fade-in-up dashboard-page dashboard-asociacion-page">

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1',
-  timeout: 15000,
+  timeout: 25000,
 });
 
 // ── Interceptor de solicitud: inyectar token JWT ──────────
@@ -19,17 +19,31 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Interceptor de respuesta: manejar 401 globalmente ────
+// ── Interceptor de respuesta: 401 + retry ────────────────
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Limpiar sesión y redirigir al login
       localStorage.removeItem('la-esperanza-auth');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+      return Promise.reject(error);
     }
+
+    const config = error.config;
+    const isNetwork = !error.response;
+    const is5xx = error.response?.status >= 500;
+    const isRetryable = isNetwork || is5xx;
+    const methodAllowsRetry = config?.method && ['get', 'head'].includes(config.method.toLowerCase());
+    const notRetried = !config?._retried;
+
+    if (isRetryable && methodAllowsRetry && notRetried) {
+      config._retried = true;
+      await new Promise(r => setTimeout(r, 400));
+      return api.request(config);
+    }
+
     return Promise.reject(error);
   }
 );

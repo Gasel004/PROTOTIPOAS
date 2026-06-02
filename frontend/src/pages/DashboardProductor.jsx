@@ -75,10 +75,10 @@ export default function DashboardProductor() {
       </div>
 
       <div className="dashboard-kpi-grid">
-        <StatCard icon={<Package size={22}/>} label="Publicaciones activas" value={stats?.publicaciones ?? 0} color="verde" onClick={() => navigate('/mis-publicaciones')} />
-        <StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} />
-        <StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} />
-        <StatCard icon={<TrendingUp size={22}/>} label="Ingresos este mes" value={`Q${(stats?.ingresos_mes??0).toLocaleString()}`} color="cielo" delta="+12%" up onClick={() => navigate('/pagos')} />
+        <div className="stagger-item"><StatCard icon={<Package size={22}/>} label="Publicaciones activas" value={stats?.publicaciones ?? 0} color="verde" onClick={() => navigate('/mis-publicaciones')} /></div>
+        <div className="stagger-item"><StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} /></div>
+        <div className="stagger-item"><StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} /></div>
+        <div className="stagger-item"><StatCard icon={<TrendingUp size={22}/>} label="Ingresos este mes" value={`Q${(stats?.ingresos_mes??0).toLocaleString()}`} color="cielo" delta="+12%" up onClick={() => navigate('/pagos')} /></div>
       </div>
 
       <div className="dashboard-producer-workbench">

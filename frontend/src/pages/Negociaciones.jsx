@@ -1,16 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from '../components/Pagination';
+import { ListSkeleton } from '../components/skeletons';
 import { Handshake, Store, MessageCircle, Clock, CheckCircle, XCircle, ChevronRight, User } from 'lucide-react';
-
-const MOCK = [
-  { id:1, titulo:'Maíz blanco 50 qq', contraparte:'Comercial Sur S.A.', cantidad_solicitada:50, precio_acordado:120, estado:'aceptada', created_at:'2025-05-08', mensajes_nuevos:2, unidad_medida:'quintal' },
-  { id:2, titulo:'Frijol negro 20 qq', contraparte:'Juan García', cantidad_solicitada:20, precio_acordado:280, estado:'pendiente', created_at:'2025-05-07', mensajes_nuevos:0, unidad_medida:'quintal' },
-  { id:3, titulo:'Tomate cherry 10 cajas', contraparte:'Mercado Central', cantidad_solicitada:10, precio_acordado:90, estado:'completada', created_at:'2025-05-01', mensajes_nuevos:0, unidad_medida:'caja' },
-  { id:4, titulo:'Papa blanca 30 qq', contraparte:'Distribuidora Norte', cantidad_solicitada:30, precio_acordado:null, estado:'rechazada', created_at:'2025-04-28', mensajes_nuevos:0, unidad_medida:'quintal' },
-  { id:5, titulo:'Aguacate Hass 15 cajas', contraparte:'ExportFresh', cantidad_solicitada:15, precio_acordado:350, estado:'en_proceso', created_at:'2025-05-05', mensajes_nuevos:1, unidad_medida:'caja' },
-];
 
 const ESTADOS = ['Todos','pendiente','en_proceso','aceptada','rechazada','completada','cancelada'];
 const ESTADO_CONFIG = {
@@ -45,22 +40,32 @@ export default function Negociaciones() {
   const isProductor = user?.rol === 'productor';
   const [negs, setNegs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
 
   useEffect(() => {
-    api.get('/negociaciones')
+    const ac = new AbortController();
+    setLoading(true);
+    setError('');
+    api.get('/negociaciones', { signal: ac.signal })
       .then(r => setNegs((r.data?.data ?? []).map(n => normalizeNeg(n, user))))
-      .catch(() => setNegs(MOCK.map(n => normalizeNeg(n, user))))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setError(err.response?.data?.message ?? 'No se pudieron cargar las negociaciones');
+        setNegs([]);
+      })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, []);
 
-  const filtradas = filtro === 'Todos' ? negs : negs.filter(n => n.estado === filtro);
-  const conteos = ESTADOS.reduce((acc, e) => {
+  const filtradas = useMemo(() => filtro === 'Todos' ? negs : negs.filter(n => n.estado === filtro), [negs, filtro]);
+  const conteos = useMemo(() => ESTADOS.reduce((acc, e) => {
     acc[e] = e === 'Todos' ? negs.length : negs.filter(n => n.estado === e).length;
     return acc;
-  }, {});
+  }, {}), [negs]);
+  const pag = usePagination(filtradas, 10);
 
-  if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  if (loading) return <ListSkeleton count={4} />;
 
   return (
     <div className="animate-fade-in-up">
@@ -77,10 +82,12 @@ export default function Negociaciones() {
         )}
       </div>
 
+      {error && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-5)' }}>{error}</div>}
+
       <div style={{ display:'flex', gap:'var(--sp-2)', marginBottom:'var(--sp-6)', flexWrap:'wrap' }}>
         {ESTADOS.map(e => (
           <button key={e} className={filtro === e ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-            onClick={() => setFiltro(e)}>
+            onClick={() => { setFiltro(e); pag.reset(); }}>
             {e === 'Todos' ? 'Todas' : ESTADO_CONFIG[e]?.label ?? e}
             {conteos[e] > 0 && (
               <span style={{
@@ -104,7 +111,7 @@ export default function Negociaciones() {
             </>}
           </div>
         : <div style={{ display:'flex', flexDirection:'column', gap:'var(--sp-3)' }}>
-            {filtradas.map(neg => {
+            {pag.pageItems.map(neg => {
               const cfg = ESTADO_CONFIG[neg.estado] ?? { badge:'badge-gris', label:neg.estado, icon:null };
               const total = neg.precio_acordado ? neg.precio_acordado * neg.cantidad_solicitada : null;
               return (
@@ -149,6 +156,8 @@ export default function Negociaciones() {
                 </div>
               );
             })}
+            <Pagination page={pag.page} totalPages={pag.totalPages} total={pag.total}
+              onPrev={pag.prev} onNext={pag.next} onSetPage={pag.setPage} label="negociaciones" />
           </div>
       }
     </div>

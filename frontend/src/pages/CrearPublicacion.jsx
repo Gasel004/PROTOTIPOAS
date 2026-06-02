@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
-import { Camera, UploadCloud, Trash2, Loader2, ArrowLeft } from 'lucide-react';
+import { UploadCloud, Trash2, Loader2, ArrowLeft } from 'lucide-react';
 
 const UNIDADES = ['quintal','libra','kilogramo','caja','docena','unidad','saco','arroba'];
 const DEPTOS = ['Alta Verapaz','Baja Verapaz','Chimaltenango','Chiquimula','El Progreso',
@@ -17,6 +17,7 @@ export default function CrearPublicacion() {
   const fileInputRef = useRef(null);
 
   const [catalogo, setCatalogo] = useState([]);
+  const [catalogoError, setCatalogoError] = useState('');
   const [form, setForm] = useState({
     producto_id:'', titulo:'', descripcion:'',
     cantidad_disponible:'', precio_unitario:'', unidad_medida:'quintal',
@@ -24,8 +25,10 @@ export default function CrearPublicacion() {
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [success, setSuccess] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -57,18 +60,19 @@ export default function CrearPublicacion() {
 
   const uploadFile = async (file) => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      alert('Solo se permiten imágenes JPG, PNG o WebP.');
+      setUploadError('Solo se permiten imágenes JPG, PNG o WebP.');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen no debe pesar más de 5MB.');
+      setUploadError('La imagen no debe pesar más de 5MB.');
       return;
     }
 
-    // Show local preview immediately
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     const blobUrl = URL.createObjectURL(file);
     setPreviewUrl(blobUrl);
     setImageError(false);
+    setUploadError('');
 
     const formData = new FormData();
     formData.append('imagen', file);
@@ -80,7 +84,9 @@ export default function CrearPublicacion() {
         setForm(prev => ({ ...prev, imagen_url: res.data.url }));
       }
     } catch (err) {
-      alert(err.response?.data?.message ?? 'Error al subir la imagen');
+      setUploadError(err.response?.data?.message ?? 'No se pudo subir la imagen');
+      URL.revokeObjectURL(blobUrl);
+      setPreviewUrl(null);
     } finally {
       setUploading(false);
     }
@@ -103,26 +109,27 @@ export default function CrearPublicacion() {
   }, [previewUrl]);
 
   useEffect(() => {
-    api.get('/productos').then(r => setCatalogo(r.data?.data ?? mockCatalogo())).catch(() => setCatalogo(mockCatalogo()));
+    const ac = new AbortController();
+    api.get('/productos', { signal: ac.signal })
+      .then(r => setCatalogo(r.data?.data ?? []))
+      .catch(err => {
+        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setCatalogoError(err.response?.data?.message ?? 'No se pudo cargar el catálogo de productos');
+        setCatalogo([]);
+      });
     if (esEdicion) {
-      api.get(`/publicaciones/${id}`)
-        .then(r => { const d = r.data?.data ?? {}; setForm({ ...form, ...d, producto_id: d.producto_id ?? '' }); })
-        .catch(() => {});
+      api.get(`/publicaciones/${id}`, { signal: ac.signal })
+        .then(r => {
+          const d = r.data?.data ?? {};
+          setForm(prev => ({ ...prev, ...d, producto_id: d.producto_id ?? '' }));
+        })
+        .catch(err => {
+          if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+          setSaveError(err.response?.data?.message ?? 'No se pudo cargar la publicación');
+        });
     }
+    return () => ac.abort();
   }, []);
-
-  function mockCatalogo() {
-    return [
-      { id:1, nombre:'Maíz', unidad_medida:'quintal' },
-      { id:2, nombre:'Frijol', unidad_medida:'quintal' },
-      { id:3, nombre:'Tomate', unidad_medida:'caja' },
-      { id:4, nombre:'Papa', unidad_medida:'quintal' },
-      { id:5, nombre:'Aguacate', unidad_medida:'caja' },
-      { id:6, nombre:'Chile', unidad_medida:'caja' },
-      { id:7, nombre:'Güicoy', unidad_medida:'caja' },
-      { id:8, nombre:'Zanahoria', unidad_medida:'libra' },
-    ];
-  }
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -150,6 +157,8 @@ export default function CrearPublicacion() {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
+    setSaveError('');
     setSaving(true);
     try {
       const payload = { ...form, producto_id: Number(form.producto_id),
@@ -163,7 +172,7 @@ export default function CrearPublicacion() {
       setSuccess(true);
       setTimeout(() => navigate('/mis-publicaciones'), 1500);
     } catch (err) {
-      alert(err.response?.data?.message ?? 'Error al guardar');
+      setSaveError(err.response?.data?.message ?? 'No se pudo guardar la publicación');
     } finally { setSaving(false); }
   }
 
@@ -183,6 +192,14 @@ export default function CrearPublicacion() {
         <div className="alert alert-success" style={{ marginBottom:'var(--sp-5)' }}>
           Publicación {esEdicion ? 'actualizada' : 'creada'} correctamente. Redirigiendo...
         </div>
+      )}
+
+      {saveError && (
+        <div className="alert alert-error" style={{ marginBottom:'var(--sp-5)' }}>{saveError}</div>
+      )}
+
+      {catalogoError && catalogo.length === 0 && (
+        <div className="alert alert-error" style={{ marginBottom:'var(--sp-5)' }}>{catalogoError}</div>
       )}
 
       <form onSubmit={handleSubmit}>
@@ -284,6 +301,9 @@ export default function CrearPublicacion() {
         <div className="card" style={{ marginBottom:'var(--sp-5)' }}>
           <div className="card-header"><h4>4. Foto del producto</h4></div>
           <div className="card-body">
+            {uploadError && (
+              <div className="alert alert-error" style={{ marginBottom: 'var(--sp-3)' }}>{uploadError}</div>
+            )}
             <input
               type="file"
               ref={fileInputRef}

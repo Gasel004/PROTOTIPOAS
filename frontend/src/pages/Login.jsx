@@ -56,30 +56,34 @@ export default function Login() {
         </div>
 
         {error && (
-          <div className="alert alert-error auth-error">
+          <div id="login-error" className="alert alert-error auth-error" role="alert">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" noValidate>
           <div className="form-group">
-            <label className="form-label">Número de teléfono</label>
+            <label className="form-label" htmlFor="login-telefono">Número de teléfono</label>
             <div className="input-icon-wrap">
-              <Phone size={17} />
-              <input className="form-input" type="tel" placeholder="4256-1234"
+              <Phone size={17} aria-hidden="true" />
+              <input id="login-telefono" className="form-input" type="tel" placeholder="4256-1234"
                 value={form.telefono}
                 onChange={e=>setForm(f => ({ ...f, telefono: formatTelefono(e.target.value) }))}
-                autoComplete="tel" autoFocus maxLength={9} />
+                autoComplete="tel" autoFocus maxLength={9}
+                aria-invalid={error && form.telefono ? 'true' : 'false'}
+                aria-describedby={error && form.telefono ? 'login-error' : undefined} />
             </div>
           </div>
           <div className="form-group">
-            <label className="form-label">Contraseña</label>
+            <label className="form-label" htmlFor="login-password">Contraseña</label>
             <div className="input-icon-wrap">
-              <Lock size={17} />
-              <input className="form-input" type="password" placeholder="********"
+              <Lock size={17} aria-hidden="true" />
+              <input id="login-password" className="form-input" type="password" placeholder="********"
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                autoComplete="current-password" />
+                autoComplete="current-password"
+                aria-invalid={error && form.password ? 'true' : 'false'}
+                aria-describedby={error && form.password ? 'login-error' : undefined} />
             </div>
           </div>
 

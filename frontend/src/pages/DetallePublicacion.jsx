@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 
 
@@ -34,23 +35,47 @@ export default function DetallePublicacion() {
 
   const [pub, setPub] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [modalNeg, setModalNeg] = useState(false);
+  const cerrarModalNeg = () => { if (!sending) setModalNeg(false); };
+  const modalNegRef = useModalA11y(modalNeg, cerrarModalNeg);
   const [negForm, setNegForm] = useState({ cantidad_solicitada: '', condiciones: '' });
+  const [negFormError, setNegFormError] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [negOk, setNegOk] = useState(false);
 
   useEffect(() => {
-    api.get(`/publicaciones/${id}`)
+    const ac = new AbortController();
+    setLoading(true);
+    setLoadError('');
+    api.get(`/publicaciones/${id}`, { signal: ac.signal })
       .then(r => setPub(r.data?.data ? normalizePub(r.data.data) : null))
-      .catch(() => setPub(null))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setLoadError(err.response?.data?.message ?? 'No se pudo cargar la publicación');
+        setPub(null);
+      })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, [id]);
+
+  function abrirModalNeg() {
+    setNegForm({ cantidad_solicitada: '', condiciones: '' });
+    setNegFormError('');
+    setSendError('');
+    setNegOk(false);
+    setModalNeg(true);
+  }
 
   async function iniciarNegociacion(e) {
     e.preventDefault();
     if (!negForm.cantidad_solicitada || Number(negForm.cantidad_solicitada) <= 0) {
-      alert('Ingresa una cantidad válida'); return;
+      setNegFormError('Ingresa una cantidad válida');
+      return;
     }
+    setNegFormError('');
+    setSendError('');
     setSending(true);
     try {
       await api.post('/negociaciones', {
@@ -61,11 +86,12 @@ export default function DetallePublicacion() {
       setNegOk(true);
       setTimeout(() => { setModalNeg(false); navigate('/negociaciones'); }, 1800);
     } catch (err) {
-      alert(err.response?.data?.message ?? 'Error al iniciar negociación');
+      setSendError(err.response?.data?.message ?? 'No se pudo iniciar la negociación');
     } finally { setSending(false); }
   }
 
   if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  if (loadError) return <div className="empty-state card"><h3>No se pudo cargar la publicación</h3><p>{loadError}</p></div>;
   if (!pub) return <div className="empty-state"><h3>Publicación no encontrada</h3></div>;
 
   const total = pub.precio_unitario * pub.cantidad_disponible;
@@ -152,7 +178,7 @@ export default function DetallePublicacion() {
               </div>
 
               {isComprador && pub.estado === 'activa' && (
-                <button className="btn btn-primary btn-full btn-lg" onClick={() => setModalNeg(true)}>
+                <button className="btn btn-primary btn-full btn-lg" onClick={abrirModalNeg}>
                   Iniciar negociación
                 </button>
               )}
@@ -209,11 +235,11 @@ export default function DetallePublicacion() {
 
       {/* Modal negociación */}
       {modalNeg && (
-        <div className="modal-overlay" onClick={() => !sending && setModalNeg(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={cerrarModalNeg}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={modalNegRef}>
             <div className="modal-header">
               <h3> Iniciar negociación</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setModalNeg(false)} disabled={sending}></button>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}></button>
             </div>
             {negOk
               ? <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--sp-10)' }}>
@@ -221,15 +247,18 @@ export default function DetallePublicacion() {
                 <h3>¡Negociación iniciada!</h3>
                 <p className="text-muted">El productor recibirá una notificación. Redirigiendo...</p>
               </div>
-              : <form onSubmit={iniciarNegociacion}>
+              : <form onSubmit={iniciarNegociacion} noValidate>
                 <div className="modal-body">
+                  {sendError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{sendError}</div>}
                   <div className="form-group">
                     <label className="form-label">Cantidad solicitada ({pub.unidad_medida}s) <span style={{ color: 'var(--rojo)' }}>*</span></label>
                 <input className="form-input" type="number" min="1" max={pub.cantidad_disponible}
                   value={negForm.cantidad_solicitada}
                   onChange={e=>setNegForm(f => ({ ...f, cantidad_solicitada: e.target.value }))}
-                  placeholder={`Máx: ${pub.cantidad_disponible}`} />
+                  placeholder={`Máx: ${pub.cantidad_disponible}`}
+                  aria-invalid={negFormError ? 'true' : 'false'} />
                     <p className="form-hint">Disponibles: {pub.cantidad_disponible} {pub.unidad_medida}s</p>
+                    {negFormError && <p className="form-error">{negFormError}</p>}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Condiciones iniciales</label>
@@ -238,14 +267,14 @@ export default function DetallePublicacion() {
                       onChange={e => setNegForm(f => ({ ...f, condiciones: e.target.value }))}
                       placeholder="Pago al contado, recojo en finca, requiero factura..." />
                   </div>
-                  {negForm.cantidad_solicitada && (
+                  {negForm.cantidad_solicitada && !negFormError && (
                     <div className="alert alert-success">
                       Total estimado: <strong>Q{(pub.precio_unitario * Number(negForm.cantidad_solicitada)).toLocaleString()}</strong>
                     </div>
                   )}
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-ghost" onClick={() => setModalNeg(false)} disabled={sending}>Cancelar</button>
+                  <button type="button" className="btn btn-ghost" onClick={cerrarModalNeg} disabled={sending}>Cancelar</button>
                   <button type="submit" className="btn btn-primary" disabled={sending}>
                     {sending ? ' Enviando...' : ' Enviar solicitud'}
                   </button>

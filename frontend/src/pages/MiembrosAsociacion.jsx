@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../api/client';
+import { useModalA11y } from '../hooks/useModalA11y';
 import {
   UserPlus, Users, Phone, Star, Link2, Unlink, Package, Handshake,
   Ban, CheckCircle, XCircle
@@ -28,7 +29,25 @@ export default function MiembrosAsociacion() {
   const [calPendientes, setCalPendientes] = useState([]);
   const [loadingCal, setLoadingCal] = useState(false);
 
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const cerrarConfirmRemove = () => { if (!removerSaving) setConfirmRemove(null); };
+  const confirmRemoveRef = useModalA11y(!!confirmRemove, cerrarConfirmRemove);
+
+  const [confirmReactivar, setConfirmReactivar] = useState(null);
+  const cerrarConfirmReactivar = () => { if (!reactivarSaving) setConfirmReactivar(null); };
+  const confirmReactivarRef = useModalA11y(!!confirmReactivar, cerrarConfirmReactivar);
+
+  const [rechazoCal, setRechazoCal] = useState(null);
+  const cerrarRechazoCal = () => { if (!rechazoSaving) setRechazoCal(null); };
+  const rechazoCalRef = useModalA11y(!!rechazoCal, cerrarRechazoCal);
+  const [rechazoMotivo, setRechazoMotivo] = useState('');
+  const [rechazoSaving, setRechazoSaving] = useState(false);
+  const [reactivarSaving, setReactivarSaving] = useState(false);
+  const [removerSaving, setRemoverSaving] = useState(false);
+
   const [suspender, setSuspender] = useState(null);
+  const cerrarSuspender = () => { if (!suspSaving) setSuspender(null); };
+  const suspenderRef = useModalA11y(!!suspender, cerrarSuspender);
   const [suspTemporal, setSuspTemporal] = useState(true);
   const [suspDias, setSuspDias] = useState(7);
   const [suspMotivo, setSuspMotivo] = useState('');
@@ -90,14 +109,17 @@ export default function MiembrosAsociacion() {
   }
 
   async function remover(id) {
-    if (!confirm('¿Quitar este productor de la asociación?')) return;
     setMsg(''); setError('');
+    setRemoverSaving(true);
     try {
       await api.delete('/asociaciones/miembros/' + id);
       setMsg('Productor removido de la asociación');
       setMiembros(prev => prev.filter(m => m.id !== id));
+      setConfirmRemove(null);
     } catch (err) {
       setError(err.response?.data?.message ?? 'No se pudo remover el productor');
+    } finally {
+      setRemoverSaving(false);
     }
   }
 
@@ -122,14 +144,34 @@ export default function MiembrosAsociacion() {
   }
 
   async function reactivar(id) {
-    if (!confirm('¿Reactivar este productor?')) return;
     setError(''); setMsg('');
+    setReactivarSaving(true);
     try {
       await api.put('/asociaciones/miembros/reactivar/' + id);
       setMsg('Productor reactivado');
+      setConfirmReactivar(null);
       await cargar();
     } catch (err) {
       setError(err.response?.data?.message ?? 'Error al reactivar');
+    } finally {
+      setReactivarSaving(false);
+    }
+  }
+
+  async function rechazarCalSubmit() {
+    if (!rechazoCal) return;
+    setRechazoSaving(true);
+    setError('');
+    try {
+      await api.put('/asociaciones/calificaciones/' + rechazoCal.id + '/rechazar', { motivo: rechazoMotivo || '' });
+      setCalPendientes(prev => prev.filter(c => c.id !== rechazoCal.id));
+      setMsg('Calificación rechazada');
+      setRechazoCal(null);
+      setRechazoMotivo('');
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Error al rechazar');
+    } finally {
+      setRechazoSaving(false);
     }
   }
 
@@ -144,14 +186,9 @@ export default function MiembrosAsociacion() {
   }
 
   async function rechazarCal(id) {
-    const motivo = prompt('Motivo del rechazo (opcional):');
-    try {
-      await api.put('/asociaciones/calificaciones/' + id + '/rechazar', { motivo: motivo || '' });
-      setCalPendientes(prev => prev.filter(c => c.id !== id));
-      setMsg('Calificación rechazada');
-    } catch (err) {
-      setError(err.response?.data?.message ?? 'Error al rechazar');
-    }
+    setRechazoCal({ id });
+    setRechazoMotivo('');
+    setError('');
   }
 
   const publicaciones = miembros.reduce((sum, m) => sum + (m._count?.publicaciones ?? 0), 0);
@@ -234,7 +271,7 @@ export default function MiembrosAsociacion() {
                   </div>
                   <div className="assoc-member-actions">
                     {susp ? (
-                      <button type="button" className="btn btn-sm btn-success" onClick={() => reactivar(m.id)} title="Reactivar">
+                      <button type="button" className="btn btn-sm btn-success" onClick={() => setConfirmReactivar(m)} title="Reactivar">
                         <CheckCircle size={14}/> Reactivar
                       </button>
                     ) : (
@@ -242,7 +279,7 @@ export default function MiembrosAsociacion() {
                         <Ban size={14}/> Suspender
                       </button>
                     )}
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => remover(m.id)} title="Quitar de asociación">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmRemove(m)} title="Quitar de asociación">
                       <Unlink size={14}/>
                     </button>
                   </div>
@@ -280,7 +317,7 @@ export default function MiembrosAsociacion() {
                     <button className="btn btn-sm btn-success" onClick={() => aprobarCal(c.id)}>
                       <CheckCircle size={14}/> Aprobar
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => rechazarCal(c.id)}>
+                    <button className="btn btn-sm btn-danger" onClick={() => rechazarCal(c)}>
                       <XCircle size={14}/> Rechazar
                     </button>
                   </div>
@@ -293,11 +330,11 @@ export default function MiembrosAsociacion() {
 
       {/* ── Modal de suspensión ─────────────────────────────── */}
       {suspender && (
-        <div className="modal-overlay" onClick={() => setSuspender(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={cerrarSuspender}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={suspenderRef}>
             <div className="modal-header">
               <h3><Ban size={18}/> Suspender a {suspender.usuario?.nombre}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSuspender(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarSuspender} disabled={suspSaving}>✕</button>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -325,9 +362,73 @@ export default function MiembrosAsociacion() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setSuspender(null)}>Cancelar</button>
+              <button className="btn btn-ghost" onClick={cerrarSuspender} disabled={suspSaving}>Cancelar</button>
               <button className="btn btn-danger" disabled={suspSaving} onClick={confirmarSuspender}>
                 <Ban size={16}/> {suspSaving ? 'Suspendiendo...' : 'Suspender'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmRemove && (
+        <div className="modal-overlay" onClick={cerrarConfirmRemove}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={confirmRemoveRef} role="dialog" aria-modal="true" aria-labelledby="modal-remover-title">
+            <div className="modal-header">
+              <h3 id="modal-remover-title"><Unlink size={18}/> Quitar productor</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarConfirmRemove} disabled={removerSaving}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>¿Quitar a <strong>{confirmRemove.usuario?.nombre ?? 'este productor'}</strong> de la asociación? El productor no será eliminado, solo dejará de estar vinculado.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={cerrarConfirmRemove} disabled={removerSaving}>Cancelar</button>
+              <button className="btn btn-danger" disabled={removerSaving} onClick={() => remover(confirmRemove.id)}>
+                {removerSaving ? 'Removiendo...' : 'Quitar de la asociación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmReactivar && (
+        <div className="modal-overlay" onClick={cerrarConfirmReactivar}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={confirmReactivarRef} role="dialog" aria-modal="true" aria-labelledby="modal-reactivar-title">
+            <div className="modal-header">
+              <h3 id="modal-reactivar-title"><CheckCircle size={18}/> Reactivar productor</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarConfirmReactivar} disabled={reactivarSaving}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>¿Reactivar a <strong>{confirmReactivar.usuario?.nombre ?? 'este productor'}</strong>? Volverá a poder crear publicaciones y recibir negociaciones.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={cerrarConfirmReactivar} disabled={reactivarSaving}>Cancelar</button>
+              <button className="btn btn-success" disabled={reactivarSaving} onClick={() => reactivar(confirmReactivar.id)}>
+                {reactivarSaving ? 'Reactivando...' : 'Reactivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rechazoCal && (
+        <div className="modal-overlay" onClick={cerrarRechazoCal}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={rechazoCalRef} role="dialog" aria-modal="true" aria-labelledby="modal-rechazo-title">
+            <div className="modal-header">
+              <h3 id="modal-rechazo-title"><XCircle size={18}/> Rechazar calificación</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarRechazoCal} disabled={rechazoSaving}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: 'var(--sp-4)' }}>Indica el motivo del rechazo. Este mensaje se almacenará para auditoría.</p>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Motivo (opcional)</label>
+                <textarea className="form-input" rows={3} value={rechazoMotivo} onChange={e => setRechazoMotivo(e.target.value)} placeholder="Describe el motivo..." />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={cerrarRechazoCal} disabled={rechazoSaving}>Cancelar</button>
+              <button className="btn btn-danger" disabled={rechazoSaving} onClick={rechazarCalSubmit}>
+                {rechazoSaving ? 'Rechazando...' : 'Confirmar rechazo'}
               </button>
             </div>
           </div>

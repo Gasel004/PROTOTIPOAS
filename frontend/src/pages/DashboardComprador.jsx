@@ -75,10 +75,10 @@ export default function DashboardComprador() {
       </div>
 
       <div className="dashboard-kpi-grid">
-        <StatCard icon={<Store size={22}/>} label="Publicaciones disponibles" value={stats?.publicaciones_vistas ?? 0} color="cielo" onClick={() => navigate('/publicaciones')} />
-        <StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} />
-        <StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} />
-        <StatCard icon={<DollarSign size={22}/>} label="Gasto este mes" value={`Q${(stats?.gasto_mes??0).toLocaleString()}`} color="verde" onClick={() => navigate('/pagos')} />
+        <div className="stagger-item"><StatCard icon={<Store size={22}/>} label="Publicaciones disponibles" value={stats?.publicaciones_vistas ?? 0} color="cielo" onClick={() => navigate('/publicaciones')} /></div>
+        <div className="stagger-item"><StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} /></div>
+        <div className="stagger-item"><StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} /></div>
+        <div className="stagger-item"><StatCard icon={<DollarSign size={22}/>} label="Gasto este mes" value={`Q${(stats?.gasto_mes??0).toLocaleString()}`} color="verde" onClick={() => navigate('/pagos')} /></div>
       </div>
 
       <div className="dashboard-buyer-market">

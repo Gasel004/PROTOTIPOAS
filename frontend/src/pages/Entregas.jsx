@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from '../components/Pagination';
+import { ListSkeleton } from '../components/skeletons';
+import { useModalA11y } from '../hooks/useModalA11y';
 import api from '../api/client';
 import { Truck, CheckCircle, XCircle, Clock, AlertTriangle, User, MapPin } from 'lucide-react';
-
-const MOCK = [
-  { id: 1, negociacion_id: 1, titulo: 'Maíz blanco 50 qq', contraparte: 'Comercial Sur S.A.', estado: 'pendiente', fecha_programada: '2025-05-20', lugar_entrega: 'Finca San Luis, Chiquimula', confirmacion_productor: false, confirmacion_comprador: false },
-  { id: 2, negociacion_id: 5, titulo: 'Aguacate Hass 15 cajas', contraparte: 'ExportFresh', estado: 'en_transito', fecha_programada: '2025-05-15', lugar_entrega: 'Bodega ExportFresh, Guatemala', confirmacion_productor: true, confirmacion_comprador: false },
-  { id: 3, negociacion_id: 3, titulo: 'Tomate cherry 10 cajas', contraparte: 'Mercado Central', estado: 'entregado', fecha_programada: '2025-05-01', lugar_entrega: 'Puesto 14, Mercado Central', confirmacion_productor: true, confirmacion_comprador: true },
-];
 
 const ESTADO_CFG = {
   pendiente: { badge: 'badge-oro', label: 'Pendiente', icon: <Clock size={16} /> },
@@ -44,20 +42,33 @@ export default function Entregas() {
   const isProductor = user?.rol === 'productor';
   const [entregas, setEntregas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [confError, setConfError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
   const [modalConf, setModalConf] = useState(null);
+  const cerrarModalConf = () => { if (!confirming) setModalConf(null); };
+  const modalConfRef = useModalA11y(!!modalConf, cerrarModalConf);
   const [obs, setObs] = useState('');
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    api.get('/entregas')
+    const ac = new AbortController();
+    setLoading(true);
+    setError('');
+    api.get('/entregas', { signal: ac.signal })
       .then(r => setEntregas((r.data?.data ?? []).map(e => normalizeEntrega(e, user))))
-      .catch(() => setEntregas(MOCK.map(e => normalizeEntrega(e, user))))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setError(err.response?.data?.message ?? 'No se pudieron cargar las entregas');
+        setEntregas([]);
+      })
+      .finally(() => { if (!ac.signal.aborted) setLoading(false); });
+    return () => ac.abort();
   }, []);
 
   async function confirmar(entregaId) {
     setConfirming(true);
+    setConfError('');
     try {
       await api.post(`/entregas/${entregaId}/confirmar`, { observaciones: obs });
       setEntregas(prev => prev.map(e => {
@@ -68,12 +79,14 @@ export default function Entregas() {
           estado: updProd && updComp ? 'entregado' : e.estado };
       }));
       setModalConf(null); setObs('');
-    } catch (err) { alert(err.response?.data?.message ?? 'Error al confirmar'); }
-    finally { setConfirming(false); }
+    } catch (err) {
+      setConfError(err.response?.data?.message ?? 'No se pudo confirmar la entrega');
+    } finally { setConfirming(false); }
   }
 
-  const filtradas = filtro === 'Todos' ? entregas : entregas.filter(e => e.estado === filtro);
-  if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  const filtradas = useMemo(() => filtro === 'Todos' ? entregas : entregas.filter(e => e.estado === filtro), [entregas, filtro]);
+  const pag = usePagination(filtradas, 10);
+  if (loading) return <ListSkeleton count={4} />;
 
   return (
     <div className="animate-fade-in-up">
@@ -84,10 +97,13 @@ export default function Entregas() {
         </div>
       </div>
 
+      {error && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-5)' }}>{error}</div>}
+      {confError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{confError}</div>}
+
       <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-6)', flexWrap: 'wrap' }}>
         {['Todos', 'pendiente', 'en_transito', 'entregado', 'con_problema'].map(e => (
           <button key={e} className={filtro === e ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-         onClick={() => setFiltro(e)}>
+         onClick={() => { setFiltro(e); pag.reset(); }}>
             {e === 'Todos' ? 'Todas' : ESTADO_CFG[e]?.label ?? e}
           </button>
         ))}
@@ -100,7 +116,7 @@ export default function Entregas() {
             <p>Las entregas aparecerán aquí cuando tengas negociaciones aceptadas</p>
           </div>
         : <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            {filtradas.map(e => {
+            {pag.pageItems.map(e => {
               const cfg = ESTADO_CFG[e.estado] ?? { badge: 'badge-gris', label: e.estado, icon: null };
               const yoConfirm = isProductor ? e.confirmacion_productor : e.confirmacion_comprador;
               const elConfirm = isProductor ? e.confirmacion_comprador : e.confirmacion_productor;
@@ -162,15 +178,17 @@ export default function Entregas() {
                 </div>
               );
             })}
+            <Pagination page={pag.page} totalPages={pag.totalPages} total={pag.total}
+              onPrev={pag.prev} onNext={pag.next} onSetPage={pag.setPage} label="entregas" />
           </div>
       }
 
       {modalConf && (
-        <div className="modal-overlay" onClick={() => !confirming && setModalConf(null)}>
-          <div className="modal" onClick={ev => ev.stopPropagation()}>
+        <div className="modal-overlay" onClick={cerrarModalConf}>
+          <div className="modal" onClick={ev => ev.stopPropagation()} ref={modalConfRef}>
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle size={18} /> Confirmar entrega</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setModalConf(null)} disabled={confirming}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalConf} disabled={confirming}>✕</button>
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: 'var(--sp-4)', color: 'var(--gris-700)' }}>
@@ -183,7 +201,7 @@ export default function Entregas() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setModalConf(null)} disabled={confirming}>Cancelar</button>
+              <button className="btn btn-ghost" onClick={cerrarModalConf} disabled={confirming}>Cancelar</button>
               <button className="btn btn-primary" onClick={() => confirmar(modalConf.id)} disabled={confirming}
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircle size={15} /> {confirming ? 'Confirmando...' : 'Confirmar'}

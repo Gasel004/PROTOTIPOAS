@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { ListSkeleton } from '../components/skeletons';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { getFullImageUrl } from '../api/utils';
 import { PlusCircle, Pencil, Pause, Play, Trash2, Eye, Package } from 'lucide-react';
 
@@ -24,6 +26,7 @@ export default function MisPublicaciones() {
   const [filtro, setFiltro] = useState('Todos');
   const [confirm, setConfirm] = useState(null);
   const [error, setError] = useState('');
+  const modalRef = useModalA11y(!!confirm, () => setConfirm(null));
 
   useEffect(() => {
     api.get('/publicaciones/mis-publicaciones')
@@ -54,10 +57,14 @@ export default function MisPublicaciones() {
   }
 
   const estadoBadge = e => ({ activa: 'badge-verde', pausada: 'badge-oro', cerrada: 'badge-gris', vencida: 'badge-rojo' }[e] ?? 'badge-gris');
-  const filtradas = filtro === 'Todos' ? pubs : pubs.filter(p => p.estado === filtro);
-  const totales = { activa: pubs.filter(p => p.estado === 'activa').length, pausada: pubs.filter(p => p.estado === 'pausada').length, cerrada: pubs.filter(p => p.estado === 'cerrada').length };
+  const filtradas = useMemo(() => filtro === 'Todos' ? pubs : pubs.filter(p => p.estado === filtro), [pubs, filtro]);
+  const totales = useMemo(() => ({
+    activa: pubs.filter(p => p.estado === 'activa').length,
+    pausada: pubs.filter(p => p.estado === 'pausada').length,
+    cerrada: pubs.filter(p => p.estado === 'cerrada').length,
+  }), [pubs]);
 
-  if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
+  if (loading) return <ListSkeleton count={4} />;
 
   return (
     <div className="animate-fade-in-up">
@@ -152,18 +159,18 @@ export default function MisPublicaciones() {
                       </span>
                     </td>
                     <td style={{ color: 'var(--gris-500)', fontSize: '.875rem' }}>{p.created_at}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-                        <button className="btn btn-ghost btn-sm" title="Ver" onClick={() => navigate(`/publicaciones/${p.id}`)}><Eye size={15} /></button>
-                        <button className="btn btn-ghost btn-sm" title="Editar" onClick={() => navigate(`/publicaciones/${p.id}/editar`)}><Pencil size={15} /></button>
-                        {p.estado === 'activa'
-                          ? <button className="btn btn-ghost btn-sm" title="Pausar" onClick={() => cambiarEstado(p.id, 'pausada')}><Pause size={15} /></button>
-                          : p.estado === 'pausada'
-                          ? <button className="btn btn-ghost btn-sm" title="Activar" onClick={() => cambiarEstado(p.id, 'activa')}><Play size={15} /></button>
-                          : null}
-                        <button className="btn btn-ghost btn-sm" title="Eliminar" style={{ color: 'var(--rojo)' }} onClick={() => setConfirm(p.id)}><Trash2 size={15} /></button>
-                      </div>
-                    </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                          <button className="btn btn-ghost btn-sm" title="Ver" aria-label={`Ver ${p.titulo}`} onClick={() => navigate(`/publicaciones/${p.id}`)}><Eye size={15} /></button>
+                          <button className="btn btn-ghost btn-sm" title="Editar" aria-label={`Editar ${p.titulo}`} onClick={() => navigate(`/publicaciones/${p.id}/editar`)}><Pencil size={15} /></button>
+                          {p.estado === 'activa'
+                            ? <button className="btn btn-ghost btn-sm" title="Pausar" aria-label={`Pausar ${p.titulo}`} onClick={() => cambiarEstado(p.id, 'pausada')}><Pause size={15} /></button>
+                            : p.estado === 'pausada'
+                            ? <button className="btn btn-ghost btn-sm" title="Activar" aria-label={`Activar ${p.titulo}`} onClick={() => cambiarEstado(p.id, 'activa')}><Play size={15} /></button>
+                            : null}
+                          <button className="btn btn-ghost btn-sm" title="Eliminar" aria-label={`Eliminar ${p.titulo}`} style={{ color: 'var(--rojo)' }} onClick={() => setConfirm(p.id)}><Trash2 size={15} /></button>
+                        </div>
+                      </td>
                   </tr>
                 ))}
               </tbody>
@@ -173,10 +180,11 @@ export default function MisPublicaciones() {
 
       {confirm && (
         <div className="modal-overlay" onClick={() => setConfirm(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div ref={modalRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-eliminar-title" onClick={e => e.stopPropagation()}>
+
             <div className="modal-header">
-              <h3>¿Eliminar publicación?</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(null)}>✕</button>
+              <h3 id="modal-eliminar-title">¿Eliminar publicación?</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirm(null)} aria-label="Cancelar">✕</button>
             </div>
             <div className="modal-body">
               <p>La publicación dejará de aparecer en tu lista y no estará disponible para nuevas negociaciones.</p>
