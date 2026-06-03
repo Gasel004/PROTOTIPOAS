@@ -37,7 +37,8 @@ cd sistema-la-esperanza
 
 # 2. Configurar variables de entorno
 cp .env.example .env
-# Editar .env con tus valores
+# Editar .env con tus valores aunque los actuales ya funcionana
+
 
 # 3. Levantar todos los servicios
 docker compose up --build -d
