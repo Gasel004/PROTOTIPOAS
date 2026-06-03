@@ -5,6 +5,7 @@ import { getFullImageUrl } from '../api/utils';
 import { UploadCloud, Trash2, Loader2, ArrowLeft } from 'lucide-react';
 
 const UNIDADES = ['quintal','libra','kilogramo','caja','docena','unidad','saco','arroba'];
+const TIPOS_PRODUCTO = ['Granos básicos','Frutas','Verduras','Hortalizas','Tubérculos','Especias','Otros'];
 const DEPTOS = ['Alta Verapaz','Baja Verapaz','Chimaltenango','Chiquimula','El Progreso',
   'Escuintla','Guatemala','Huehuetenango','Izabal','Jalapa','Jutiapa','Petén',
   'Quetzaltenango','Quiché','Retalhuleu','Sacatepéquez','San Marcos','Santa Rosa',
@@ -16,10 +17,8 @@ export default function CrearPublicacion() {
   const esEdicion = Boolean(id);
   const fileInputRef = useRef(null);
 
-  const [catalogo, setCatalogo] = useState([]);
-  const [catalogoError, setCatalogoError] = useState('');
   const [form, setForm] = useState({
-    producto_id:'', titulo:'', descripcion:'',
+    producto:'', tipo_producto:'', descripcion:'',
     cantidad_disponible:'', precio_unitario:'', unidad_medida:'quintal',
     municipio:'', departamento:'', imagen_url:null,
   });
@@ -110,18 +109,11 @@ export default function CrearPublicacion() {
 
   useEffect(() => {
     const ac = new AbortController();
-    api.get('/productos', { signal: ac.signal })
-      .then(r => setCatalogo(r.data?.data ?? []))
-      .catch(err => {
-        if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
-        setCatalogoError(err.response?.data?.message ?? 'No se pudo cargar el catálogo de productos');
-        setCatalogo([]);
-      });
     if (esEdicion) {
       api.get(`/publicaciones/${id}`, { signal: ac.signal })
         .then(r => {
           const d = r.data?.data ?? {};
-          setForm(prev => ({ ...prev, ...d, producto_id: d.producto_id ?? '' }));
+          setForm(prev => ({ ...prev, ...d }));
         })
         .catch(err => {
           if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
@@ -135,16 +127,12 @@ export default function CrearPublicacion() {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
-    if (name === 'producto_id') {
-      const prod = catalogo.find(p => p.id === Number(value));
-      if (prod) setForm(prev => ({ ...prev, producto_id: value, unidad_medida: prod.unidad_medida }));
-    }
   }
 
   function validate() {
     const e = {};
-    if (!form.producto_id) e.producto_id = 'Selecciona un producto';
-    if (!form.titulo.trim()) e.titulo = 'El título es requerido';
+    if (!form.producto.trim()) e.producto = 'Escribe el nombre del producto';
+    if (!form.tipo_producto) e.tipo_producto = 'Selecciona un tipo de producto';
     if (!form.cantidad_disponible || Number(form.cantidad_disponible) <= 0)
       e.cantidad_disponible = 'Ingresa una cantidad válida';
     if (!form.precio_unitario || Number(form.precio_unitario) <= 0)
@@ -161,7 +149,7 @@ export default function CrearPublicacion() {
     setSaveError('');
     setSaving(true);
     try {
-      const payload = { ...form, producto_id: Number(form.producto_id),
+      const payload = { ...form,
         cantidad_disponible: Number(form.cantidad_disponible),
         precio_unitario: Number(form.precio_unitario) };
       if (esEdicion) {
@@ -198,10 +186,6 @@ export default function CrearPublicacion() {
         <div className="alert alert-error" style={{ marginBottom:'var(--sp-5)' }}>{saveError}</div>
       )}
 
-      {catalogoError && catalogo.length === 0 && (
-        <div className="alert alert-error" style={{ marginBottom:'var(--sp-5)' }}>{catalogoError}</div>
-      )}
-
       <form onSubmit={handleSubmit}>
         <div className="card" style={{ marginBottom:'var(--sp-5)' }}>
           <div className="card-header">
@@ -211,17 +195,17 @@ export default function CrearPublicacion() {
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label">Producto <span>*</span></label>
-                <select className="form-select" name="producto_id" value={form.producto_id} onChange={handleChange}>
-                  <option value="">— Selecciona un producto —</option>
-                  {catalogo.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
-                {errors.producto_id && <p className="form-error">{errors.producto_id}</p>}
+                <input className="form-input" name="producto" value={form.producto} onChange={handleChange}
+                  placeholder="Ej: Maíz blanco, Tomate cherry, Frijol negro..." autoComplete="off" />
+                {errors.producto && <p className="form-error">{errors.producto}</p>}
               </div>
               <div className="form-group">
-                <label className="form-label">Título de la publicación <span>*</span></label>
-                <input className="form-input" name="titulo" value={form.titulo} onChange={handleChange}
-                  placeholder="Ej: Maíz blanco primera calidad" />
-                {errors.titulo && <p className="form-error">{errors.titulo}</p>}
+                <label className="form-label">Tipo de producto <span>*</span></label>
+                <select className="form-select" name="tipo_producto" value={form.tipo_producto} onChange={handleChange}>
+                  <option value="">— Selecciona un tipo —</option>
+                  {TIPOS_PRODUCTO.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                {errors.tipo_producto && <p className="form-error">{errors.tipo_producto}</p>}
               </div>
             </div>
             <div className="form-group">
