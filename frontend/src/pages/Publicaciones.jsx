@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -23,8 +23,6 @@ function normalizePub(p) {
 
 export default function Publicaciones() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isPublicRoute = location.pathname.startsWith('/catalogo-publico');
   const [pubs, setPubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -69,7 +67,7 @@ export default function Publicaciones() {
 
   return (
     <div className="animate-fade-in-up">
-      <div className="page-header" style={{ marginBottom: 'var(--sp-5)' }}>
+      <div className="page-header">
         <div>
           <h1>Publicaciones</h1>
           <p className="text-muted">Encuentra los mejores productos agrícolas directos del campo</p>
@@ -123,7 +121,7 @@ export default function Publicaciones() {
               {filtradas.length} publicación{filtradas.length !== 1 ? 'es' : ''} encontrada{filtradas.length !== 1 ? 's' : ''}
             </p>
             <div className="grid-pub">
-              {filtradas.map((p, i) => <div key={p.id} className="stagger-item" style={{ animationDelay: `${i * 0.04}s` }}><PubCard pub={p} onClick={() => navigate(isPublicRoute ? `/catalogo-publico/${p.id}` : `/publicaciones/${p.id}`)} /></div>)}
+              {filtradas.map((p, i) => <div key={p.id} className="stagger-item" style={{ animationDelay: `${i * 0.04}s` }}><PubCard pub={p} onClick={() => navigate(`/publicaciones/${p.id}`)} /></div>)}
             </div>
           </>
       }
