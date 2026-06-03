@@ -7,7 +7,13 @@ import Pagination from '../components/Pagination';
 import { ListSkeleton } from '../components/skeletons';
 import { Handshake, Store, MessageCircle, Clock, CheckCircle, XCircle, ChevronRight, User } from 'lucide-react';
 
-const ESTADOS = ['Todos','pendiente','en_proceso','aceptada','rechazada','completada','cancelada'];
+const FILTROS = [
+  { key: 'Todos',      label: 'Todas' },
+  { key: 'activas',    label: 'Activas' },
+  { key: 'completada', label: 'Completadas' },
+  { key: 'rechazada',  label: 'Rechazadas' },
+];
+const ESTADOS_ACTIVOS = ['pendiente', 'en_proceso', 'aceptada'];
 const ESTADO_CONFIG = {
   pendiente:  { badge:'badge-oro',   label:'Pendiente',  icon:<Clock size={14}/> },
   en_proceso: { badge:'badge-azul',  label:'En proceso', icon:<Handshake size={14}/> },
@@ -58,9 +64,15 @@ export default function Negociaciones() {
     return () => ac.abort();
   }, []);
 
-  const filtradas = useMemo(() => filtro === 'Todos' ? negs : negs.filter(n => n.estado === filtro), [negs, filtro]);
-  const conteos = useMemo(() => ESTADOS.reduce((acc, e) => {
-    acc[e] = e === 'Todos' ? negs.length : negs.filter(n => n.estado === e).length;
+  const filtradas = useMemo(() => {
+    if (filtro === 'Todos') return negs;
+    if (filtro === 'activas') return negs.filter(n => ESTADOS_ACTIVOS.includes(n.estado));
+    return negs.filter(n => n.estado === filtro);
+  }, [negs, filtro]);
+  const conteos = useMemo(() => FILTROS.reduce((acc, f) => {
+    if (f.key === 'Todos') acc[f.key] = negs.length;
+    else if (f.key === 'activas') acc[f.key] = negs.filter(n => ESTADOS_ACTIVOS.includes(n.estado)).length;
+    else acc[f.key] = negs.filter(n => n.estado === f.key).length;
     return acc;
   }, {}), [negs]);
   const pag = usePagination(filtradas, 10);
@@ -85,17 +97,17 @@ export default function Negociaciones() {
       {error && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-5)' }}>{error}</div>}
 
       <div style={{ display:'flex', gap:'var(--sp-2)', marginBottom:'var(--sp-6)', flexWrap:'wrap' }}>
-        {ESTADOS.map(e => (
-          <button key={e} className={filtro === e ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-            onClick={() => { setFiltro(e); pag.reset(); }}>
-            {e === 'Todos' ? 'Todas' : ESTADO_CONFIG[e]?.label ?? e}
-            {conteos[e] > 0 && (
+        {FILTROS.map(f => (
+          <button key={f.key} className={filtro === f.key ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+            onClick={() => { setFiltro(f.key); pag.reset(); }}>
+            {f.label}
+            {conteos[f.key] > 0 && (
               <span style={{
-                background: filtro === e ? 'rgba(255,255,255,.3)' : 'var(--verde-50)',
-                color: filtro === e ? 'var(--blanco)' : 'var(--verde-800)',
+                background: filtro === f.key ? 'rgba(255,255,255,.3)' : 'var(--verde-50)',
+                color: filtro === f.key ? 'var(--blanco)' : 'var(--verde-800)',
                 borderRadius:'var(--radius-full)', padding:'1px 7px', marginLeft:'var(--sp-2)',
                 fontSize:'.75rem', fontWeight:700,
-              }}>{conteos[e]}</span>
+              }}>{conteos[f.key]}</span>
             )}
           </button>
         ))}
