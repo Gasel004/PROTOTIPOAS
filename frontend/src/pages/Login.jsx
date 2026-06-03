@@ -100,18 +100,6 @@ export default function Login() {
           ¿No tienes cuenta?{' '}
           <Link to="/registro">Regístrate</Link>
         </p>
-
-        <div style={{ textAlign: 'center', marginTop: 'var(--sp-3)' }}>
-          <span style={{ fontSize: '.8rem', color: 'var(--gris-400)' }}>— o —</span>
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-ghost btn-full"
-          style={{ marginTop: 'var(--sp-3)', color: 'var(--verde-700)', borderColor: 'var(--verde-300)' }}
-          onClick={() => navigate('/catalogo-publico')}>
-          Ver catálogo sin registrarse
-        </button>
       </section>
 
       <section className="auth-field" aria-hidden="true">

@@ -77,16 +77,15 @@ export default function CatalogoProductos() {
 
   return (
     <div className="animate-fade-in-up dashboard-page dashboard-asociacion-page">
-      <div className="page-header" style={{ marginBottom: 'var(--sp-5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-4)' }}>
-          <div>
-            <h1 style={{ marginBottom: 'var(--sp-1)' }}>Productos del sistema</h1>
-            <p className="text-muted">Administra los productos que los productores podrán usar al crear publicaciones de venta.</p>
-          </div>
-          <div style={{ textAlign: 'center', background: 'var(--verde-50)', border: '1px solid var(--verde-100)', borderRadius: 'var(--radius-lg)', padding: 'var(--sp-4) var(--sp-6)', flexShrink: 0 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', fontWeight: 700, color: 'var(--verde-800)', lineHeight: 1 }}>{productos.length}</div>
-            <div style={{ fontSize: '.8rem', color: 'var(--verde-700)', fontWeight: 600, marginTop: 4 }}>productos registrados</div>
-          </div>
+      <div className="assoc-members-hero catalog-hero">
+        <div>
+          <span className="eyebrow">Catálogo agrícola</span>
+          <h1>Productos del sistema</h1>
+          <p>Administra los productos que los productores podrán usar al crear publicaciones de venta.</p>
+        </div>
+        <div className="assoc-members-summary">
+          <strong>{productos.length}</strong>
+          <span>productos registrados</span>
         </div>
       </div>
 
