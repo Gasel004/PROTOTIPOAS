@@ -5,6 +5,7 @@ import { Leaf } from 'lucide-react';
 
 // Layout
 import Layout from './components/Layout';
+import PublicLayout from './components/PublicLayout';
 import ScrollToTop from './components/ScrollToTop';
 
 // Páginas — lazy load
@@ -67,8 +68,14 @@ export default function App() {
           <PublicRoute><Registro /></PublicRoute>
         } />
 
+        {/* ── Catálogo público (sin login) ─────────── */}
+        <Route element={<PublicLayout />}>
+          <Route path="/catalogo-publico"      element={<Publicaciones />} />
+          <Route path="/catalogo-publico/:id"  element={<DetallePublicacion />} />
+        </Route>
+
         {/* ── Raíz ─────────────────────────────────── */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/catalogo-publico" replace />} />
 
         {/* ── Rutas privadas (con layout) ───────────── */}
         <Route element={

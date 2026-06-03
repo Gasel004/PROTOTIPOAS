@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
@@ -30,7 +30,10 @@ function normalizePub(p) {
 export default function DetallePublicacion() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
+  const isGuest = !user;                          // visitante sin sesión
+  const isPublicRoute = location.pathname.startsWith('/catalogo-publico');
   const isComprador = user?.rol === 'comprador';
 
   const [pub, setPub] = useState(null);
@@ -99,7 +102,10 @@ export default function DetallePublicacion() {
   return (
     <div className="animate-fade-in-up">
       <div style={{ marginBottom: 'var(--sp-5)' }}>
-        <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}> Volver</button>
+        <button className="btn btn-ghost btn-sm"
+          onClick={() => isPublicRoute ? navigate('/catalogo-publico') : navigate(-1)}>
+          Volver
+        </button>
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -177,17 +183,32 @@ export default function DetallePublicacion() {
                 </div>
               </div>
 
-              {isComprador && pub.estado === 'activa' && (
+              {isGuest ? (
+                /* ── Visitante sin sesión ── */
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ color: 'var(--gris-600)', fontSize: '.9rem', marginBottom: 'var(--sp-4)', lineHeight: 1.6 }}>
+                    Para negociar o comprar este producto necesitas una cuenta.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+                    <button className="btn btn-primary btn-full btn-lg"
+                      onClick={() => navigate('/registro')}>
+                      Crear cuenta gratis
+                    </button>
+                    <button className="btn btn-ghost btn-full"
+                      onClick={() => navigate('/login')}>
+                      Ya tengo cuenta — Iniciar sesión
+                    </button>
+                  </div>
+                </div>
+              ) : isComprador && pub.estado === 'activa' ? (
                 <button className="btn btn-primary btn-full btn-lg" onClick={abrirModalNeg}>
                   Iniciar negociación
                 </button>
-              )}
-              {!isComprador && (
+              ) : !isComprador ? (
                 <div className="alert alert-info" style={{ textAlign: 'center', fontSize: '.875rem' }}>
                   Solo los compradores pueden iniciar negociaciones
                 </div>
-              )}
-              {pub.estado !== 'activa' && (
+              ) : (
                 <div className="alert alert-warn" style={{ textAlign: 'center' }}>
                   Esta publicación no está disponible
                 </div>
