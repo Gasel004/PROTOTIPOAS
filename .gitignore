@@ -34,6 +34,8 @@ logs/
 backend/prisma/*.db
 backend/prisma/*.db-journal
 
+# ── cargas de los usuarios ─────────────────────────────────────
+backend/uploads/
 # ── DOCKER VOLÚMENES MONTADOS LOCALMENTE ──────────────────────
 pgdata/
 docker-volumes/
@@ -76,3 +78,4 @@ coverage/
 .tmp/
 
 
+# ── OTROS ───────────────────────────────────────────────────────
