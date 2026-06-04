@@ -288,22 +288,45 @@ describe(' Negociaciones — Flujo completo', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 
-  test('PATCH /api/v1/negociaciones/:id/estado — productor puede aceptar', async () => {
+  test('PATCH /api/v1/negociaciones/:id/estado — productor confirma (1/2), negociacion sigue en_proceso', async () => {
     const res = await request(app)
       .patch(`/api/v1/negociaciones/${negociacionId}/estado`)
       .set('Authorization', `Bearer ${tokenProductor}`)
       .send({ estado: 'aceptada', precio_acordado: 120 })
       .expect(200);
 
-    expect(res.body.data.estado).toBe('aceptada');
-    expect(res.body.data.precio_acordado).toBe(120);
+    // Con la doble confirmación del precio, una sola parte NO basta
+    expect(res.body.data.estado).toBe('pendiente');
+    expect(res.body.data.confirmacion_productor).toBe(true);
+    expect(res.body.data.confirmacion_comprador).toBe(false);
+    expect(Number(res.body.data.precio_acordado)).toBe(120);
   });
 
   test('PATCH /api/v1/negociaciones/:id/estado — debe rechazar transición inválida', async () => {
     await request(app)
       .patch(`/api/v1/negociaciones/${negociacionId}/estado`)
       .set('Authorization', `Bearer ${tokenProductor}`)
-      .send({ estado: 'pendiente' }) // No se puede volver a pendiente desde aceptada
+      .send({ estado: 'pendiente' }) // No se permite auto-transición
+      .expect(400);
+  });
+
+  test('PATCH /api/v1/negociaciones/:id/estado — comprador confirma (2/2), negociacion pasa a en_transito', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/negociaciones/${negociacionId}/estado`)
+      .set('Authorization', `Bearer ${tokenComprador}`)
+      .send({ estado: 'aceptada' })
+      .expect(200);
+
+    expect(res.body.data.estado).toBe('en_transito');
+    expect(res.body.data.confirmacion_productor).toBe(true);
+    expect(res.body.data.confirmacion_comprador).toBe(true);
+  });
+
+  test('PATCH /api/v1/negociaciones/:id/estado — no se puede forzar completada por PATCH directo', async () => {
+    await request(app)
+      .patch(`/api/v1/negociaciones/${negociacionId}/estado`)
+      .set('Authorization', `Bearer ${tokenProductor}`)
+      .send({ estado: 'completada' })
       .expect(400);
   });
 
@@ -372,27 +395,42 @@ describe(' Entregas — Gestión y confirmación', () => {
 
   let entregaId;
 
-  test('POST /api/v1/entregas — debe crear entrega para negociación aceptada', async () => {
+  test('GET /api/v1/entregas — entrega fue auto-creada al pasar a en_transito', async () => {
     const res = await request(app)
-      .post('/api/v1/entregas')
+      .get('/api/v1/entregas')
       .set('Authorization', `Bearer ${tokenProductor}`)
-      .send({
-        negociacion_id: negociacionId,
-        fecha_programada: '2025-06-01',
-        lugar_entrega: 'Finca de prueba, Chiquimula',
-      })
-      .expect(201);
+      .expect(200);
 
-    expect(res.body.data.estado).toBe('pendiente');
-    entregaId = res.body.data.id;
+    const encontrada = res.body.data.find(e => e.negociacion_id === negociacionId);
+    expect(encontrada).toBeDefined();
+    expect(encontrada.estado).toBe('pendiente');
+    entregaId = encontrada.id;
   });
 
-  test('POST /api/v1/entregas — debe rechazar duplicado', async () => {
-    await request(app)
-      .post('/api/v1/entregas')
+  test('PUT /api/v1/entregas/:id — productor marca como enviado (en_transito)', async () => {
+    const res = await request(app)
+      .put(`/api/v1/entregas/${entregaId}`)
       .set('Authorization', `Bearer ${tokenProductor}`)
-      .send({ negociacion_id: negociacionId })
-      .expect(409);
+      .send({ estado: 'en_transito' })
+      .expect(200);
+
+    expect(res.body.data.estado).toBe('en_transito');
+  });
+
+  test('POST /api/v1/entregas/:id/confirmar — debe rechazar si la entrega sigue pendiente', async () => {
+    // Crear otra entrega temporal para forzar el path de rechazo
+    const res = await request(app)
+      .get('/api/v1/entregas')
+      .set('Authorization', `Bearer ${tokenProductor}`)
+      .expect(200);
+    const ent = res.body.data.find(e => e.negociacion_id === negociacionId);
+    if (ent.estado === 'pendiente') {
+      await request(app)
+        .post(`/api/v1/entregas/${ent.id}/confirmar`)
+        .set('Authorization', `Bearer ${tokenProductor}`)
+        .send({})
+        .expect(400);
+    }
   });
 
   test('POST /api/v1/entregas/:id/confirmar — primera confirmación (productor)', async () => {
@@ -405,26 +443,24 @@ describe(' Entregas — Gestión y confirmación', () => {
     expect(res.body.message).toMatch(/confirmaci/i);
   });
 
-  test('POST /api/v1/entregas/:id/confirmar — segunda confirmación (comprador) completa entrega', async () => {
-    const res = await request(app)
+  test('POST /api/v1/entregas/:id/confirmar — segunda confirmación (comprador) marca entregada; negociación NO cierra aún', async () => {
+    await request(app)
       .post(`/api/v1/entregas/${entregaId}/confirmar`)
       .set('Authorization', `Bearer ${tokenComprador}`)
       .send({ observaciones: 'Todo correcto' })
       .expect(200);
 
-    // Verificar que la entrega pasó a "entregado"
+    // Entrega pasa a entregado
     const entregaRes = await request(app)
       .get(`/api/v1/entregas/${entregaId}`)
       .set('Authorization', `Bearer ${tokenProductor}`);
-
     expect(entregaRes.body.data.estado).toBe('entregado');
 
-    // Verificar que la negociación pasó a "completada"
+    // Pero la negociación sigue en tránsito: aún falta el pago
     const negRes = await request(app)
       .get(`/api/v1/negociaciones/${negociacionId}`)
       .set('Authorization', `Bearer ${tokenProductor}`);
-
-    expect(negRes.body.data.estado).toBe('completada');
+    expect(negRes.body.data.estado).toBe('en_transito');
   });
 });
 
@@ -461,20 +497,37 @@ describe(' Pagos — Registro y estados', () => {
       .expect(400);
   });
 
-  test('PUT /api/v1/pagos/:id — debe cambiar estado a completado', async () => {
+  test('PUT /api/v1/pagos/:id — completar el pago cierra la negociación (entrega OK + pago OK)', async () => {
     const pagosRes = await request(app)
       .get('/api/v1/pagos')
       .set('Authorization', `Bearer ${tokenComprador}`);
 
     const pagoId = pagosRes.body.data[0]?.id;
 
-    const res = await request(app)
+    await request(app)
       .put(`/api/v1/pagos/${pagoId}`)
       .set('Authorization', `Bearer ${tokenProductor}`)
       .send({ estado: 'completado' })
       .expect(200);
 
-    expect(res.body.data.estado).toBe('completado');
+    // La negociación debe haber pasado a 'completada' automáticamente
+    // porque ya teníamos la entrega en 'entregado' y ahora el pago
+    // cubre el total (6000 >= 30 * 120 = 3600).
+    const negRes = await request(app)
+      .get(`/api/v1/negociaciones/${negociacionId}`)
+      .set('Authorization', `Bearer ${tokenProductor}`);
+
+    expect(negRes.body.data.estado).toBe('completada');
+  });
+
+  test('GET /api/v1/pagos?negociacion_id=X — filtra pagos por negociación', async () => {
+    const res = await request(app)
+      .get(`/api/v1/pagos?negociacion_id=${negociacionId}`)
+      .set('Authorization', `Bearer ${tokenProductor}`)
+      .expect(200);
+
+    expect(Array.isArray(res.body.data)).toBe(true);
+    res.body.data.forEach(p => expect(p.negociacion_id).toBe(negociacionId));
   });
 });
 

@@ -156,6 +156,10 @@ model Negociacion {
   estado                 EstadoNegociacion @default(pendiente)
   condiciones            String?
   fecha_entrega_acordada DateTime? @db.Date
+  confirmacion_productor Boolean   @default(false)
+  confirmacion_comprador Boolean   @default(false)
+  fecha_confirmacion_productor DateTime?
+  fecha_confirmacion_comprador DateTime?
   created_at             DateTime @default(now())
   updated_at             DateTime @updatedAt
 
@@ -176,6 +180,7 @@ model Negociacion {
 enum EstadoNegociacion {
   pendiente
   en_proceso
+  en_transito
   aceptada
   rechazada
   completada

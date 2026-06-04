@@ -4,7 +4,7 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { StatCard, QuickBtn } from '../components/DashboardUI';
 import {
-  PlusCircle, Store, Handshake, Truck, CreditCard, User,
+  PlusCircle, Store, Handshake, Truck, CreditCard,
   TrendingUp, Package, ArrowRight, Lightbulb, Leaf
 } from 'lucide-react';
 
@@ -120,7 +120,6 @@ export default function DashboardProductor() {
                 <QuickBtn icon={<Handshake size={15}/>} label="Negociaciones" onClick={()=>navigate('/negociaciones')} />
                 <QuickBtn icon={<Truck size={15}/>} label="Entregas" onClick={()=>navigate('/entregas')} />
                 <QuickBtn icon={<CreditCard size={15}/>} label="Pagos" onClick={()=>navigate('/pagos')} />
-                <QuickBtn icon={<User size={15}/>} label="Perfil" onClick={()=>navigate('/perfil')} />
               </div>
             </div>
           </div>

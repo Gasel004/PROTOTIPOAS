@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { evaluarCierre } = require('./negociaciones.controller');
 
 const ESTADOS_PAGO = ['pendiente', 'completado', 'fallido', 'reembolsado'];
 const METODOS_PAGO = ['efectivo', 'transferencia', 'cheque', 'otro'];
@@ -35,11 +36,12 @@ async function obtenerPagoParticipante(pagoId, userId) {
 
 async function listar(req, res, next) {
   try {
-    const { estado } = req.query;
+    const { estado, negociacion_id } = req.query;
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const where = {};
     if (estado) where.estado = estado;
+    if (negociacion_id) where.negociacion_id = Number(negociacion_id);
 
     if (req.user.rol === 'productor') {
       const productor = await prisma.productor.findUnique({ where:{ usuario_id:req.user.id } });
@@ -101,7 +103,18 @@ async function actualizar(req, res, next) {
     const { pago, participa } = await obtenerPagoParticipante(Number(req.params.id), req.user.id);
     if (!pago) return res.status(404).json({ success:false, message:'No encontrado' });
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para actualizar este pago' });
+
+    // Para marcar un pago como 'completado', la negociación debe estar en tránsito
+    if (estado === 'completado' && pago.negociacion?.estado !== 'en_transito') {
+      return res.status(400).json({ success:false, message:'La negociación aún no está en tránsito' });
+    }
+
     const data = await prisma.pago.update({ where:{id:pago.id}, data:{estado,referencia,notas} });
+
+    // Tras completar el pago, evaluar si ya se puede cerrar la negociación
+    if (estado === 'completado' && pago.negociacion_id) {
+      await evaluarCierre(pago.negociacion_id);
+    }
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }

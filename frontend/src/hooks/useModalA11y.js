@@ -3,9 +3,14 @@ import { useEffect, useRef, useCallback } from 'react';
 export function useModalA11y(isOpen, onClose) {
   const ref = useRef(null);
   const restoreFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') onCloseRef.current?.();
 
     if (e.key === 'Tab' && ref.current) {
       const focusable = ref.current.querySelectorAll(
@@ -17,7 +22,7 @@ export function useModalA11y(isOpen, onClose) {
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;

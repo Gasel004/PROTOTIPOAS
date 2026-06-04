@@ -1,17 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { CheckCircle, XCircle, Handshake } from 'lucide-react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 const ESTADO_SIGUIENTES = {
-  pendiente: [{ estado: 'aceptada', label: ' Aceptar', cls: 'btn-primary' }, { estado: 'rechazada', label: ' Rechazar', cls: 'btn-danger' }],
-  en_proceso: [{ estado: 'aceptada', label: ' Confirmar acuerdo', cls: 'btn-primary' }],
-  aceptada: [],
+  pendiente: [{ estado: 'en_transito', label: ' Aceptar y proponer precio', cls: 'btn-primary' }, { estado: 'rechazada', label: ' Rechazar', cls: 'btn-danger' }],
+  en_proceso: [{ estado: 'en_transito', label: ' Confirmar mi parte del acuerdo', cls: 'btn-primary' }],
+  en_transito: [],
+  aceptada: [{ estado: 'en_transito', label: ' Confirmar acuerdo (legacy)', cls: 'btn-primary' }],
   rechazada: [],
   completada: [],
   cancelada: [],
 };
+
+const PASOS_NEGOCIACION = [
+  { estado: 'pendiente',   label: 'Solicitud' },
+  { estado: 'en_proceso',  label: 'En proceso' },
+  { estado: 'en_transito', label: 'En tránsito' },
+  { estado: 'completada',  label: 'Completada' },
+];
 
 function normalizeNeg(n) {
   return {
@@ -57,12 +66,38 @@ export default function DetalleNegociacion() {
   const [texto, setTexto] = useState('');
   const [sending, setSending] = useState(false);
   const [modalAcept, setModalAcept] = useState(false);
+  const [modoModal, setModoModal] = useState('inicial');
   const cerrarModalAcept = () => { if (!sending) setModalAcept(false); };
   const modalAceptRef = useModalA11y(modalAcept, cerrarModalAcept);
   const [precioForm, setPrecioForm] = useState('');
   const [chatLive, setChatLive] = useState(false);
   const [estadoError, setEstadoError] = useState('');
   const [sendError, setSendError] = useState('');
+  const [modalPropuesta, setModalPropuesta] = useState(false);
+  const propuestaDescartadaKey = useRef(
+    (() => { try { return sessionStorage.getItem(`la-esperanza-propuesta-descartada-${id}`) || null; } catch { return null; } })()
+  );
+  const persistirDescarte = (key) => {
+    propuestaDescartadaKey.current = key;
+    try { sessionStorage.setItem(`la-esperanza-propuesta-descartada-${id}`, key); } catch {}
+  };
+  const limpiarDescarte = () => {
+    propuestaDescartadaKey.current = null;
+    try { sessionStorage.removeItem(`la-esperanza-propuesta-descartada-${id}`); } catch {}
+  };
+  const cerrarModalPropuesta = () => {
+    if (sending) return;
+    if (neg) {
+      const key = `${neg.precio_acordado}_${neg.confirmacion_productor}_${neg.confirmacion_comprador}_${neg.updated_at}`;
+      persistirDescarte(key);
+    }
+    setModalPropuesta(false);
+  };
+  const reabrirPropuesta = () => {
+    limpiarDescarte();
+    setModalPropuesta(true);
+  };
+  const modalPropuestaRef = useModalA11y(modalPropuesta, cerrarModalPropuesta);
 
   const cargarMensajes = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -77,6 +112,27 @@ export default function DetalleNegociacion() {
       if (!silent) await api.patch(`/negociaciones/${id}/mensajes/leer`).catch(() => {});
     } catch {
       setChatLive(false);
+    }
+  }, [id]);
+
+  const cargarNegociacion = useCallback(async ({ signal } = {}) => {
+    try {
+      const res = await api.get(`/negociaciones/${id}`, { signal });
+      const data = res.data?.data;
+      if (!data) return;
+      setNeg(prev => {
+        const normalized = normalizeNeg(data);
+        if (!prev) return normalized;
+        // No-op si el estado y los booleanos no cambiaron
+        const changed =
+          prev.estado !== normalized.estado ||
+          prev.precio_acordado !== normalized.precio_acordado ||
+          prev.confirmacion_productor !== normalized.confirmacion_productor ||
+          prev.confirmacion_comprador !== normalized.confirmacion_comprador;
+        return changed ? { ...prev, ...normalized } : prev;
+      });
+    } catch (err) {
+      if (err?.code === 'ERR_CANCELED') return;
     }
   }, [id]);
 
@@ -104,17 +160,20 @@ export default function DetalleNegociacion() {
     const start = () => {
       if (pollingRef.current) return;
       pollingRef.current = window.setInterval(() => {
-        if (document.visibilityState === 'visible') cargarMensajes({ silent: true });
+        if (document.visibilityState === 'visible') {
+          cargarMensajes({ silent: true });
+          cargarNegociacion();
+        }
       }, 2000);
     };
     const stop = () => {
       if (pollingRef.current) { window.clearInterval(pollingRef.current); pollingRef.current = null; }
     };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') { cargarMensajes({ silent: true }); start(); }
+      if (document.visibilityState === 'visible') { cargarMensajes({ silent: true }); cargarNegociacion(); start(); }
       else stop();
     };
-    const onFocus = () => cargarMensajes({ silent: true });
+    const onFocus = () => { cargarMensajes({ silent: true }); cargarNegociacion(); };
 
     start();
     document.addEventListener('visibilitychange', onVisibility);
@@ -125,7 +184,7 @@ export default function DetalleNegociacion() {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
     };
-  }, [cargarMensajes]);
+  }, [cargarMensajes, cargarNegociacion]);
 
   useEffect(() => {
     const el = chatRef.current;
@@ -158,10 +217,59 @@ export default function DetalleNegociacion() {
       await api.patch(`/negociaciones/${id}/estado`, { estado: nuevoEstado, ...extras });
       setNeg(prev => ({ ...prev, estado: nuevoEstado, ...extras }));
       setModalAcept(false);
+      setModalPropuesta(false);
+      limpiarDescarte();
     } catch (err) {
       setEstadoError(err.response?.data?.message ?? 'No se pudo cambiar el estado');
     }
   }
+
+  // Acepta la propuesta de precio actual (la otra parte ya propuso).
+  // Llama al backend SIN precio: el controller lo trata como aceptación.
+  async function aceptarPropuesta() {
+    setSending(true);
+    try {
+      await api.patch(`/negociaciones/${id}/estado`, { estado: 'en_transito' });
+      setNeg(prev => ({
+        ...prev,
+        confirmacion_productor: user?.rol === 'productor' ? true : prev?.confirmacion_productor,
+        confirmacion_comprador: user?.rol === 'comprador' ? true : prev?.confirmacion_comprador,
+        estado: 'en_transito',
+      }));
+      setModalPropuesta(false);
+      limpiarDescarte();
+    } catch (err) {
+      setEstadoError(err.response?.data?.message ?? 'No se pudo aceptar la propuesta');
+    } finally { setSending(false); }
+  }
+
+  function renegociarPropuesta() {
+    setModalPropuesta(false);
+    limpiarDescarte();
+    setModoModal('renegociar');
+    setPrecioForm('');
+    setModalAcept(true);
+  }
+
+  // useEffect que dispara la mini-ventana cuando la otra parte confirmó
+  // un precio y la nuestra todavía no. Respeta el descarte persistido
+  // (botón X / sessionStorage) hasta que llegue una propuesta nueva.
+  useEffect(() => {
+    if (!neg || !user) return;
+    const isProductor = user.rol === 'productor';
+    const otroConfirmo = isProductor ? neg.confirmacion_comprador : neg.confirmacion_productor;
+    const yoConfirme = isProductor ? neg.confirmacion_productor : neg.confirmacion_comprador;
+    const hayPrecio = neg.precio_acordado != null;
+    const currentKey = `${neg.precio_acordado}_${neg.confirmacion_productor}_${neg.confirmacion_comprador}_${neg.updated_at}`;
+    if (otroConfirmo && !yoConfirme && hayPrecio) {
+      if (currentKey !== propuestaDescartadaKey.current) {
+        setModalPropuesta(true);
+      }
+    } else {
+      setModalPropuesta(false);
+      limpiarDescarte();
+    }
+  }, [neg?.confirmacion_productor, neg?.confirmacion_comprador, neg?.precio_acordado, neg?.updated_at, user?.rol]);
 
   if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
   if (loadError) return <div className="empty-state card"><h3>No se pudo cargar la negociación</h3><p>{loadError}</p></div>;
@@ -171,10 +279,15 @@ export default function DetalleNegociacion() {
   const miId = user?.id;
   const acciones = ESTADO_SIGUIENTES[neg.estado] ?? [];
   const total = neg.precio_acordado ? neg.precio_acordado * neg.cantidad_solicitada : null;
+  const otroConfirmo = isProductor ? neg.confirmacion_comprador : neg.confirmacion_productor;
+  const yoConfirme = isProductor ? neg.confirmacion_productor : neg.confirmacion_comprador;
+  const hayPropuestaPendiente = !!otroConfirmo && !yoConfirme && neg.precio_acordado != null;
+  const propuestaDescartada = propuestaDescartadaKey.current != null;
+  const mostrarBannerPropuesta = hayPropuestaPendiente && propuestaDescartada && !modalPropuesta;
 
   const ESTADO_CFG = {
-    pendiente: 'badge-oro', en_proceso: 'badge-azul', aceptada: 'badge-verde',
-    rechazada: 'badge-rojo', completada: 'badge-verde', cancelada: 'badge-gris',
+    pendiente: 'badge-oro', en_proceso: 'badge-azul', en_transito: 'badge-verde',
+    aceptada: 'badge-verde', rechazada: 'badge-rojo', completada: 'badge-verde', cancelada: 'badge-gris',
   };
 
   return (
@@ -191,6 +304,14 @@ export default function DetalleNegociacion() {
 
         {/* ── Chat principal ─────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
+          {mostrarBannerPropuesta && (
+            <div className="alert" style={{ background: 'var(--verde-50)', border: '1px solid var(--verde-200)', borderRadius: 'var(--radius)', padding: 'var(--sp-3) var(--sp-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', color: 'var(--verde-800)' }}>
+                <Handshake size={18} /> Tienes una propuesta de precio pendiente de revisar.
+              </span>
+              <button className="btn btn-primary btn-sm" onClick={reabrirPropuesta}>Ver propuesta</button>
+            </div>
+          )}
           {/* Header */}
           <div className="card">
             <div className="card-body">
@@ -209,19 +330,34 @@ export default function DetalleNegociacion() {
 
               {/* Steps de progreso */}
               <div className="steps">
-                {['pendiente', 'en_proceso', 'aceptada', 'completada'].map((e, i) => {
-                  const estados = ['pendiente', 'en_proceso', 'aceptada', 'completada'];
-                  const curIdx = estados.indexOf(neg.estado);
+                {PASOS_NEGOCIACION.map((paso, i) => {
+                  const curIdx = PASOS_NEGOCIACION.findIndex(p => p.estado === neg.estado);
                   const isDone = i < curIdx;
-                  const isActive = e === neg.estado;
+                  const isActive = paso.estado === neg.estado;
                   return (
-                    <div key={e} className={`step-item${isDone ? ' done' : ''}${isActive ? ' active' : ''}`}>
+                    <div key={paso.estado} className={`step-item${isDone ? ' done' : ''}${isActive ? ' active' : ''}`}>
                       <div className="step-circle">{isDone ? '' : i + 1}</div>
-                      <div className="step-label">{{ pendiente: 'Solicitud', en_proceso: 'En proceso', aceptada: 'Aceptada', completada: 'Completada' }[e]}</div>
+                       <div className="step-label">{paso.label}</div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* Doble confirmación del precio (visible en en_proceso y en_transito) */}
+              {(neg.estado === 'en_proceso' || neg.estado === 'en_transito') && (
+                <div style={{ background: 'var(--gris-50)', borderRadius: 'var(--radius)', padding: 'var(--sp-4)', marginTop: 'var(--sp-4)', display: 'flex', gap: 'var(--sp-6)', flexWrap: 'wrap' }}>
+                  <ConfirmBadge label="Productor" done={neg.confirmacion_productor} />
+                  <ConfirmBadge label="Comprador" done={neg.confirmacion_comprador} />
+                  {neg.confirmacion_productor && neg.confirmacion_comprador
+                    ? <span style={{ color: 'var(--verde-700)', fontWeight: 600, fontSize: '.875rem' }}>
+                        Ambas partes confirmaron
+                      </span>
+                    : <span style={{ color: 'var(--gris-500)', fontSize: '.875rem' }}>
+                        Se necesitan ambas confirmaciones del precio
+                      </span>
+                  }
+                </div>
+              )}
             </div>
           </div>
 
@@ -319,7 +455,18 @@ export default function DetalleNegociacion() {
                 {acciones.map(acc => (
                   <button key={acc.estado}
                     className={`btn ${acc.cls} btn-full`}
-                    onClick={() => acc.estado === 'aceptada' ? setModalAcept(true) : cambiarEstado(acc.estado)}>
+                    onClick={() => {
+                      if (acc.estado === 'en_transito' || acc.estado === 'aceptada') {
+                        // Si la otra parte ya propuso un precio, pre-rellenamos
+                        // el input con ese valor; el usuario puede aceptarlo
+                        // tal cual o cambiarlo para renegociar.
+                        setPrecioForm(neg.precio_acordado != null ? String(neg.precio_acordado) : '');
+                        setModoModal('inicial');
+                        setModalAcept(true);
+                      } else {
+                        cambiarEstado(acc.estado);
+                      }
+                    }}>
                     {acc.label}
                   </button>
                 ))}
@@ -334,25 +481,56 @@ export default function DetalleNegociacion() {
           )}
 
           {/* Entrega */}
-          {neg.estado === 'aceptada' && (
+          {neg.estado === 'en_transito' && (
             <button className="btn btn-oro btn-full" onClick={() => navigate(`/entregas`)}>
               Gestionar entrega
             </button>
           )}
+
+          {/* Pago: visible cuando la negociación está en tránsito */}
+          {neg.estado === 'en_transito' && (
+            <div className="card">
+              <div className="card-header"><h4> Pago</h4></div>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+                {total ? (
+                  <p style={{ fontSize: '.875rem', color: 'var(--gris-700)', margin: 0 }}>
+                    Total a pagar: <strong style={{ color: 'var(--verde-800)' }}>Q{total.toLocaleString()}</strong>
+                  </p>
+                ) : (
+                  <p style={{ fontSize: '.875rem', color: 'var(--gris-500)', margin: 0 }}>
+                    Aún no hay precio acordado.
+                  </p>
+                )}
+                <p style={{ fontSize: '.8125rem', color: 'var(--gris-500)', margin: 0 }}>
+                  La negociación se completará cuando la entrega esté confirmada por ambas partes y el pago esté marcado como completado.
+                </p>
+                <button className="btn btn-primary btn-full" onClick={() => navigate(`/pagos?negociacion_id=${neg.id}`)}>
+                  Ir a registrar pago
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal aceptar */}
+      {/* Modal aceptar (inicial o renegociar) */}
       {modalAcept && (
         <div className="modal-overlay" onClick={cerrarModalAcept}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalAceptRef}>
             <div className="modal-header">
-              <h3> Aceptar negociación</h3>
+              <h3>{modoModal === 'renegociar' ? ' Contraproponer precio' : ' Aceptar negociación'}</h3>
               <button className="btn btn-ghost btn-sm" onClick={cerrarModalAcept} disabled={sending}></button>
             </div>
             <div className="modal-body">
+              {modoModal === 'renegociar' && neg.precio_acordado != null && (
+                <div className="alert" style={{ background: 'var(--gris-100)', marginBottom: 'var(--sp-4)', fontSize: '.875rem' }}>
+                  Precio actual propuesto: <strong>Q{Number(neg.precio_acordado).toLocaleString()}/{neg.unidad_medida}</strong>
+                </div>
+              )}
               <div className="form-group">
-                <label className="form-label">Precio acordado (Q/{neg.unidad_medida}) <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                <label className="form-label">
+                  {modoModal === 'renegociar' ? 'Tu contrapropuesta (Q/' : 'Precio acordado (Q/'}{neg.unidad_medida}) <span style={{ color: 'var(--rojo)' }}>*</span>
+                </label>
                 <div className="input-group">
                   <span className="input-prefix">Q</span>
                   <input className="form-input" type="number" min="0" step="0.01"
@@ -369,14 +547,92 @@ export default function DetalleNegociacion() {
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={cerrarModalAcept} disabled={sending}>Cancelar</button>
               <button className="btn btn-primary"
-                onClick={() => cambiarEstado('aceptada', { precio_acordado: Number(precioForm) })}
+                onClick={() => {
+                  // Si el precio del input coincide con el actual, lo tomamos
+                  // como aceptación (PATCH sin precio → el backend confirma
+                  // sin resetear al otro). Si difiere o no había precio
+                  // previo, lo enviamos y el backend lo trata como nueva
+                  // propuesta.
+                  const precioNum = Number(precioForm);
+                  const precioActual = neg.precio_acordado;
+                  const esAceptacion = !!precioActual && precioNum === precioActual;
+                  if (esAceptacion) {
+                    cambiarEstado('en_transito');
+                  } else {
+                    cambiarEstado('en_transito', { precio_acordado: precioNum });
+                  }
+                }}
                 disabled={!precioForm}>
-                Confirmar
+                {modoModal === 'renegociar' ? 'Enviar contrapropuesta' : 'Confirmar'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Mini-ventana de propuesta de precio pendiente */}
+      {modalPropuesta && neg.precio_acordado != null && (() => {
+        const isProductor = user?.rol === 'productor';
+        const otroNombre = isProductor
+          ? (neg.comprador?.nombre ?? 'Comprador')
+          : (neg.productor?.nombre ?? 'Productor');
+        const otroRol = isProductor ? 'comprador' : 'productor';
+        const totalPropuesto = Number(neg.precio_acordado) * Number(neg.cantidad_solicitada);
+        return (
+          <div className="modal-overlay" onClick={cerrarModalPropuesta}>
+            <div className="modal" onClick={e => e.stopPropagation()} ref={modalPropuestaRef}
+              style={{ maxWidth: 460 }}>
+              <div className="modal-header">
+                <h3> Propuesta de precio</h3>
+                <button className="btn btn-ghost btn-sm" onClick={cerrarModalPropuesta} disabled={sending}>✕</button>
+              </div>
+              <div className="modal-body">
+                <p style={{ margin: '0 0 var(--sp-3)', color: 'var(--gris-700)' }}>
+                  El {otroRol} <strong>{otroNombre}</strong> propuso el siguiente precio:
+                </p>
+                <div style={{ background: 'var(--verde-50)', border: '1px solid var(--verde-200)', borderRadius: 'var(--radius)', padding: 'var(--sp-4)', textAlign: 'center', marginBottom: 'var(--sp-3)' }}>
+                  <div style={{ fontSize: '.75rem', color: 'var(--gris-600)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                    Precio por {neg.unidad_medida}
+                  </div>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--verde-800)', fontFamily: 'var(--font-display)' }}>
+                    Q{Number(neg.precio_acordado).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: '.875rem', color: 'var(--gris-600)', marginTop: 4 }}>
+                    Total: <strong>Q{totalPropuesto.toLocaleString()}</strong>
+                    {' '}({neg.cantidad_solicitada} {neg.unidad_medida})
+                  </div>
+                </div>
+                <p style={{ fontSize: '.8125rem', color: 'var(--gris-500)', margin: 0 }}>
+                  ¿Aceptas este precio o quieres proponer otro?
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={renegociarPropuesta} disabled={sending}>
+                  Renegociar
+                </button>
+                <button className="btn btn-primary" onClick={aceptarPropuesta} disabled={sending}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {sending ? 'Aceptando...' : 'Aceptar este precio'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function ConfirmBadge({ label, done }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+      {done
+        ? <CheckCircle size={18} style={{ color: 'var(--verde-700)' }} />
+        : <XCircle size={18} style={{ color: 'var(--gris-400)' }} />
+      }
+      <span style={{ fontSize: '.875rem', fontWeight: 500, color: done ? 'var(--verde-800)' : 'var(--gris-500)' }}>
+        {label}
+      </span>
     </div>
   );
 }
