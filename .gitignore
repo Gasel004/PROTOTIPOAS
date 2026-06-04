@@ -4,6 +4,11 @@
 *.doc
 *.pdf
 
+# ── OPENCODE ─────────────────────
+.agents/
+AGENTS.md
+skills-lock.json
+
 # ── CONFIGURACIONES LOCALES Y SECRETOS (¡MUY IMPORTANTE!) ──────
 .env
 .env.local

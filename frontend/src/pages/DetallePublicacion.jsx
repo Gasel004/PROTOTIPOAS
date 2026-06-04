@@ -77,6 +77,10 @@ export default function DetallePublicacion() {
       setNegFormError('Ingresa una cantidad válida');
       return;
     }
+    if (Number(negForm.cantidad_solicitada) > pub.cantidad_disponible) {
+      setNegFormError('La cantidad solicitada supera el disponible');
+      return;
+    }
     setNegFormError('');
     setSendError('');
     setSending(true);
@@ -260,7 +264,7 @@ export default function DetallePublicacion() {
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalNegRef}>
             <div className="modal-header">
               <h3> Iniciar negociación</h3>
-              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}></button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}></button>
             </div>
             {negOk
               ? <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--sp-10)' }}>
@@ -275,7 +279,10 @@ export default function DetallePublicacion() {
                     <label className="form-label">Cantidad solicitada ({pub.unidad_medida}s) <span style={{ color: 'var(--rojo)' }}>*</span></label>
                 <input className="form-input" type="number" min="1" max={pub.cantidad_disponible}
                   value={negForm.cantidad_solicitada}
-                  onChange={e=>setNegForm(f => ({ ...f, cantidad_solicitada: e.target.value }))}
+                  onChange={e => {
+                    setNegForm(f => ({ ...f, cantidad_solicitada: e.target.value }));
+                    if (negFormError) setNegFormError('');
+                  }}
                   placeholder={`Máx: ${pub.cantidad_disponible}`}
                   aria-invalid={negFormError ? 'true' : 'false'} />
                     <p className="form-hint">Disponibles: {pub.cantidad_disponible} {pub.unidad_medida}s</p>
@@ -296,7 +303,7 @@ export default function DetallePublicacion() {
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-ghost" onClick={cerrarModalNeg} disabled={sending}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary" disabled={sending}>
+                  <button type="submit" className="btn btn-primary" disabled={sending || !!negFormError}>
                     {sending ? ' Enviando...' : ' Enviar solicitud'}
                   </button>
                 </div>

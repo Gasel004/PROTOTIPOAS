@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from '../components/Pagination';
@@ -32,11 +32,14 @@ function normalizePago(p, user) {
 
 export default function Pagos() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const negociacionIdFromUrl = searchParams.get('negociacion_id');
   const { user } = useAuthStore();
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('Todos');
+  const [misNegociaciones, setMisNegociaciones] = useState([]);
   const [modalNew, setModalNew] = useState(false);
   const cerrarModalNew = () => { if (!saving) setModalNew(false); };
   const modalNewRef = useModalA11y(modalNew, cerrarModalNew);
@@ -59,6 +62,39 @@ export default function Pagos() {
       .finally(() => { if (!ac.signal.aborted) setLoading(false); });
     return () => ac.abort();
   }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    api.get('/negociaciones?estado=en_transito', { signal: ac.signal })
+      .then(r => setMisNegociaciones(r.data?.data ?? []))
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
+
+  // Cuando el usuario navega desde DetalleNegociacion con ?negociacion_id=X,
+  // abrimos el modal automáticamente y pre-rellenamos negociacion_id y monto.
+  // Si ya existe un pago registrado para esa negociación, no reabrimos el
+  // modal (evita el bucle al volver a la URL con el mismo negociacion_id).
+  useEffect(() => {
+    if (loading || !negociacionIdFromUrl) return;
+    if (modalNew) return;
+    const idNum = Number(negociacionIdFromUrl);
+    const yaTienePago = pagos.some(p => Number(p.negociacion_id) === idNum);
+    if (yaTienePago) return;
+    const idStr = String(idNum);
+    const found = misNegociaciones.find(n => String(n.id) === idStr);
+    const total = found?.precio_acordado != null
+      ? Number(found.precio_acordado) * Number(found.cantidad_solicitada ?? 0)
+      : '';
+    setForm(f => ({
+      ...f,
+      negociacion_id: idStr,
+      monto: total !== '' ? String(total.toFixed(2)) : f.monto,
+    }));
+    setFormErrors({});
+    setSaveError('');
+    setModalNew(true);
+  }, [negociacionIdFromUrl, loading, misNegociaciones, modalNew, pagos]);
 
   const totales = useMemo(() => ({
     completado: pagos.filter(p => p.estado === 'completado').reduce((s, p) => s + p.monto, 0),
@@ -203,16 +239,40 @@ export default function Pagos() {
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalNewRef}>
             <div className="modal-header">
               <h3>Registrar pago</h3>
-              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNew} disabled={saving}>✕</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={cerrarModalNew} disabled={saving}>✕</button>
             </div>
             <form onSubmit={guardarPago} noValidate>
               <div className="modal-body">
                 {saveError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{saveError}</div>}
                 <div className="form-group">
-                  <label className="form-label">ID de Negociación <span style={{ color: 'var(--rojo)' }}>*</span></label>
-                  <input className="form-input" type="number" placeholder="Ej: 1" value={form.negociacion_id}
-                    onChange={e => setForm(f => ({ ...f, negociacion_id: e.target.value }))}
-                    aria-invalid={formErrors.negociacion_id ? 'true' : 'false'} />
+                  <label className="form-label">Negociación <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                  <select className="form-select" value={form.negociacion_id}
+                    onChange={e => {
+                      const newId = e.target.value;
+                      const found = misNegociaciones.find(n => String(n.id) === String(newId));
+                      const total = found?.precio_acordado != null
+                        ? Number(found.precio_acordado) * Number(found.cantidad_solicitada ?? 0)
+                        : '';
+                      setForm(f => ({
+                        ...f,
+                        negociacion_id: newId,
+                        monto: total !== '' ? String(total.toFixed(2)) : f.monto,
+                      }));
+                    }}
+                    aria-invalid={formErrors.negociacion_id ? 'true' : 'false'}>
+                    <option value="">Selecciona una negociación</option>
+                    {misNegociaciones.map(n => {
+                      const total = n.precio_acordado != null
+                        ? Number(n.precio_acordado) * Number(n.cantidad_solicitada ?? 0)
+                        : null;
+                      return (
+                        <option key={n.id} value={n.id}>
+                          #{n.id} — {n.publicacion?.titulo ?? 'Sin título'} ({n.cantidad_solicitada} {n.publicacion?.unidad_medida ?? ''})
+                          {total != null ? ` · Q${total.toLocaleString()}` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
                   {formErrors.negociacion_id && <p className="form-error">{formErrors.negociacion_id}</p>}
                 </div>
                 <div className="grid-2">

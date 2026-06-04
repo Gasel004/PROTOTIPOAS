@@ -50,6 +50,7 @@ export default function Entregas() {
   const modalConfRef = useModalA11y(!!modalConf, cerrarModalConf);
   const [obs, setObs] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [markingId, setMarkingId] = useState(null);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -82,6 +83,17 @@ export default function Entregas() {
     } catch (err) {
       setConfError(err.response?.data?.message ?? 'No se pudo confirmar la entrega');
     } finally { setConfirming(false); }
+  }
+
+  async function marcarEnviado(entregaId) {
+    setMarkingId(entregaId);
+    setConfError('');
+    try {
+      const res = await api.put(`/entregas/${entregaId}`, { estado: 'en_transito' });
+      setEntregas(prev => prev.map(e => e.id === entregaId ? { ...e, estado: res.data?.data?.estado ?? 'en_transito' } : e));
+    } catch (err) {
+      setConfError(err.response?.data?.message ?? 'No se pudo marcar como enviado');
+    } finally { setMarkingId(null); }
   }
 
   const filtradas = useMemo(() => filtro === 'Todos' ? entregas : entregas.filter(e => e.estado === filtro), [entregas, filtro]);
@@ -158,15 +170,27 @@ export default function Entregas() {
 
                     {e.estado !== 'entregado' && (
                       <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
-                        {!yoConfirm && (
+                        {isProductor && e.estado === 'pendiente' && (
+                          <button className="btn btn-oro btn-sm" onClick={() => marcarEnviado(e.id)}
+                            disabled={markingId === e.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Truck size={14} /> {markingId === e.id ? 'Marcando...' : 'Marcar como enviado'}
+                          </button>
+                        )}
+                        {!yoConfirm && e.estado !== 'pendiente' && (
                           <button className="btn btn-primary btn-sm" onClick={() => setModalConf(e)}
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <CheckCircle size={14} /> Confirmar entrega
                           </button>
                         )}
-                        {yoConfirm && !elConfirm && (
+                        {yoConfirm && !elConfirm && e.estado !== 'pendiente' && (
                           <div className="alert alert-info" style={{ padding: 'var(--sp-2) var(--sp-4)', fontSize: '.875rem' }}>
                             Esperando confirmación de la otra parte
+                          </div>
+                        )}
+                        {e.estado === 'pendiente' && !isProductor && (
+                          <div className="alert alert-info" style={{ padding: 'var(--sp-2) var(--sp-4)', fontSize: '.875rem' }}>
+                            Esperando que el productor marque el envío
                           </div>
                         )}
                         <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/negociaciones/${e.negociacion_id}`)}>

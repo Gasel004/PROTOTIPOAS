@@ -4,7 +4,7 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { StatCard, QuickBtn } from '../components/DashboardUI';
 import {
-  Store, Handshake, Truck, DollarSign, CreditCard, User,
+  Store, Handshake, Truck, DollarSign, CreditCard,
   ShoppingCart, ArrowRight, Lightbulb, MapPin, Star
 } from 'lucide-react';
 
@@ -97,7 +97,6 @@ export default function DashboardComprador() {
               <QuickBtn icon={<Handshake size={15}/>} label="Negociaciones" onClick={()=>navigate('/negociaciones')} />
               <QuickBtn icon={<Truck size={15}/>} label="Entregas" onClick={()=>navigate('/entregas')} />
               <QuickBtn icon={<CreditCard size={15}/>} label="Pagos" onClick={()=>navigate('/pagos')} />
-              <QuickBtn icon={<User size={15}/>} label="Perfil" onClick={()=>navigate('/perfil')} />
             </div>
           </div>
         </div>

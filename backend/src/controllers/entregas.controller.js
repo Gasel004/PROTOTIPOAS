@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { evaluarCierre } = require('./negociaciones.controller');
 
 const ESTADOS_ENTREGA = ['pendiente', 'en_transito', 'entregado', 'con_problema'];
 
@@ -83,7 +84,7 @@ async function crear(req, res, next) {
       where:{ id:Number(negociacion_id) },
       include:{ productor:true, comprador:true },
     });
-    if (!neg || neg.estado !== 'aceptada') return res.status(400).json({ success:false, message:'La negociación no está en estado aceptada' });
+    if (!neg || (neg.estado !== 'en_transito' && neg.estado !== 'aceptada')) return res.status(400).json({ success:false, message:'La negociación aún no está en tránsito' });
     if (!participacion(neg, req.user.id).participa) {
       return res.status(403).json({ success:false, message:'Sin permiso para crear entrega en esta negociación' });
     }
@@ -114,6 +115,7 @@ async function confirmar(req, res, next) {
     if (!entrega) return res.status(404).json({ success:false, message:'Entrega no encontrada' });
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para confirmar esta entrega' });
     if (entrega.estado === 'entregado') return res.status(400).json({ success:false, message:'La entrega ya fue completada' });
+    if (entrega.estado === 'pendiente') return res.status(400).json({ success:false, message:'El productor aún no ha marcado el envío' });
 
     const rolConfirmador = esProductor ? 'productor' : esComprador ? 'comprador' : req.user.rol;
     const yaConfirmo = await prisma.confirmacionEntrega.findUnique({ where:{entrega_id_usuario_id:{entrega_id:entregaId,usuario_id:req.user.id}} });
@@ -129,7 +131,9 @@ async function confirmar(req, res, next) {
     const confirmoComprador = confs.some(c => c.rol_confirmador === 'comprador');
     if (confirmoProductor && confirmoComprador) {
       await prisma.entrega.update({ where:{id:entregaId}, data:{estado:'entregado',fecha_realizada:new Date()} });
-      await prisma.negociacion.update({ where:{id:entrega.negociacion_id}, data:{estado:'completada'} });
+      // El cierre de la negociación lo decide el helper central
+      // (requiere también que el pago esté completado).
+      await evaluarCierre(entrega.negociacion_id);
     }
     res.json({ success:true, message:'Confirmación registrada' });
   } catch(e) { next(e); }
