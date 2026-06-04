@@ -11,7 +11,6 @@ async function listar(req, res, next) {
     if (precio_min || precio_max) where.precio_unitario = {};
     if (precio_min) where.precio_unitario.gte = Number(precio_min);
     if (precio_max) where.precio_unitario.lte = Number(precio_max);
-
     const [data, total] = await Promise.all([
       prisma.publicacion.findMany({ where, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true } } } } }, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{ created_at:'desc' } }),
       prisma.publicacion.count({ where }),
@@ -45,10 +44,38 @@ async function crear(req, res, next) {
   try {
     const productor = await prisma.productor.findUnique({ where:{ usuario_id: req.user.id } });
     if (!productor) return res.status(404).json({ success:false, message:'Perfil de productor no encontrado' });
-    const { producto_id, titulo, descripcion, cantidad_disponible, precio_unitario, unidad_medida, municipio, departamento, imagen_url } = req.body;
-    if (!producto_id || !titulo || !cantidad_disponible || !precio_unitario || !unidad_medida)
+
+    const { producto, tipo_producto, descripcion, cantidad_disponible, precio_unitario, unidad_medida, municipio, departamento, imagen_url } = req.body;
+
+    if (!producto || !cantidad_disponible || !precio_unitario || !unidad_medida)
       return res.status(400).json({ success:false, message:'Faltan campos requeridos' });
-    const data = await prisma.publicacion.create({ data:{ productor_id:productor.id, producto_id:Number(producto_id), titulo, descripcion, cantidad_disponible:Number(cantidad_disponible), precio_unitario:Number(precio_unitario), unidad_medida, municipio, departamento, imagen_url } });
+
+    // Buscar o crear el producto por nombre y categoría
+    let productoReg = await prisma.producto.findFirst({
+      where: { nombre: { equals: producto, mode: 'insensitive' } }
+    });
+    if (!productoReg) {
+      productoReg = await prisma.producto.create({
+        data: { nombre: producto, categoria: tipo_producto || null, unidad_medida }
+      });
+    }
+
+    const titulo = tipo_producto ? `${producto} - ${tipo_producto}` : producto;
+
+    const data = await prisma.publicacion.create({
+      data: {
+        productor_id: productor.id,
+        producto_id: productoReg.id,
+        titulo,
+        descripcion,
+        cantidad_disponible: Number(cantidad_disponible),
+        precio_unitario: Number(precio_unitario),
+        unidad_medida,
+        municipio,
+        departamento,
+        imagen_url
+      }
+    });
     res.status(201).json({ success:true, data });
   } catch(e) { next(e); }
 }

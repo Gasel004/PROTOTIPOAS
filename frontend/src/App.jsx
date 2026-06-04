@@ -75,7 +75,7 @@ export default function App() {
         </Route>
 
         {/* ── Raíz ─────────────────────────────────── */}
-        <Route path="/" element={<Navigate to="/catalogo-publico" replace />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* ── Rutas privadas (con layout) ───────────── */}
         <Route element={
