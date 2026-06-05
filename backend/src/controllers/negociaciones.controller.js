@@ -231,4 +231,63 @@ async function evaluarCierre(negociacionId) {
   return updated;
 }
 
-module.exports = { listar, obtener, crear, cambiarEstado, evaluarCierre };
+async function calificarContraparte(req, res, next) {
+  try {
+    const neg = await prisma.negociacion.findUnique({
+      where: { id: Number(req.params.id) },
+      include: {
+        comprador: { include: { usuario: { select: { id: true, nombre: true } } } },
+        productor: { include: { usuario: { select: { id: true, nombre: true } } } },
+        entrega: true,
+      },
+    });
+    if (!neg) return res.status(404).json({ success: false, message: 'Negociación no encontrada' });
+
+    const esProductor = neg.productor.usuario.id === req.user.id;
+    const esComprador = neg.comprador.usuario.id === req.user.id;
+    if (!esProductor && !esComprador) {
+      return res.status(403).json({ success: false, message: 'No eres participante de esta negociación' });
+    }
+
+    if (!neg.entrega || neg.entrega.estado !== 'entregado') {
+      return res.status(400).json({ success: false, message: 'La negociación aún no tiene entrega completada' });
+    }
+
+    const puntaje = Number(req.body.puntaje);
+    if (!Number.isInteger(puntaje) || puntaje < 1 || puntaje > 5) {
+      return res.status(400).json({ success: false, message: 'La calificación debe estar entre 1 y 5 estrellas' });
+    }
+
+    const evaluadoId = esProductor ? neg.comprador.usuario.id : neg.productor.usuario.id;
+    const existente = await prisma.calificacion.findUnique({
+      where: {
+        negociacion_id_evaluador_id_evaluado_id: {
+          negociacion_id: neg.id,
+          evaluador_id: req.user.id,
+          evaluado_id: evaluadoId,
+        },
+      },
+    });
+    if (existente) {
+      return res.status(409).json({ success: false, message: 'Ya calificaste a este participante en esta negociación' });
+    }
+
+    const data = await prisma.calificacion.create({
+      data: {
+        negociacion_id: neg.id,
+        evaluador_id: req.user.id,
+        evaluado_id: evaluadoId,
+        puntaje,
+        comentario: req.body.comentario || null,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data,
+      message: 'Calificación enviada. Quedará pendiente de revisión por la asociación.',
+    });
+  } catch (e) { next(e); }
+}
+
+module.exports = { listar, obtener, crear, cambiarEstado, evaluarCierre, calificarContraparte };

@@ -7,6 +7,7 @@ r.get('/',                         verificarToken, c.listar);
 r.get('/:id',                      verificarToken, c.obtener);
 r.post('/',                        verificarToken, soloRoles('comprador'), c.crear);
 r.patch('/:id/estado',             verificarToken, c.cambiarEstado);
+r.post('/:id/calificar',           verificarToken, soloRoles('comprador', 'productor'), c.calificarContraparte);
 r.get('/:id/mensajes',             verificarToken, m.listar);
 r.post('/:id/mensajes',            verificarToken, m.enviar);
 r.patch('/:id/mensajes/leer',      verificarToken, m.marcarLeidos);
