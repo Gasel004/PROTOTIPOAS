@@ -6,7 +6,7 @@ import Pagination from '../components/Pagination';
 import { ListSkeleton } from '../components/skeletons';
 import { useModalA11y } from '../hooks/useModalA11y';
 import api from '../api/client';
-import { Truck, CheckCircle, XCircle, Clock, AlertTriangle, User, MapPin } from 'lucide-react';
+import { Truck, CheckCircle, XCircle, Clock, AlertTriangle, User, MapPin, Star } from 'lucide-react';
 
 const ESTADO_CFG = {
   pendiente: { badge: 'badge-oro', label: 'Pendiente', icon: <Clock size={16} /> },
@@ -51,6 +51,11 @@ export default function Entregas() {
   const [obs, setObs] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [markingId, setMarkingId] = useState(null);
+  const [modalRating, setModalRating] = useState(null);
+  const [ratingScore, setRatingScore] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingError, setRatingError] = useState('');
 
   useEffect(() => {
     const ac = new AbortController();
@@ -72,6 +77,7 @@ export default function Entregas() {
     setConfError('');
     try {
       await api.post(`/entregas/${entregaId}/confirmar`, { observaciones: obs });
+      const updatedEntrega = entregas.find(e => e.id === entregaId);
       setEntregas(prev => prev.map(e => {
         if (e.id !== entregaId) return e;
         const updProd = isProductor ? true : e.confirmacion_productor;
@@ -79,10 +85,37 @@ export default function Entregas() {
         return { ...e, confirmacion_productor: updProd, confirmacion_comprador: updComp,
           estado: updProd && updComp ? 'entregado' : e.estado };
       }));
+      if (updatedEntrega) {
+        setModalRating({
+          negociacion_id: updatedEntrega.negociacion_id,
+          titulo: updatedEntrega.titulo,
+          contraparte: updatedEntrega.contraparte,
+        });
+      }
       setModalConf(null); setObs('');
     } catch (err) {
       setConfError(err.response?.data?.message ?? 'No se pudo confirmar la entrega');
     } finally { setConfirming(false); }
+  }
+
+  async function enviarCalificacion() {
+    if (!modalRating || ratingScore < 1) {
+      setRatingError('Selecciona una calificación de 1 a 5 estrellas');
+      return;
+    }
+    setRatingSaving(true);
+    setRatingError('');
+    try {
+      await api.post(`/negociaciones/${modalRating.negociacion_id}/calificar`, {
+        puntaje: ratingScore,
+        comentario: ratingComment,
+      });
+      setModalRating(null);
+      setRatingScore(0);
+      setRatingComment('');
+    } catch (err) {
+      setRatingError(err.response?.data?.message ?? 'No se pudo enviar la calificación');
+    } finally { setRatingSaving(false); }
   }
 
   async function marcarEnviado(entregaId) {
@@ -229,6 +262,58 @@ export default function Entregas() {
               <button className="btn btn-primary" onClick={() => confirmar(modalConf.id)} disabled={confirming}
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <CheckCircle size={15} /> {confirming ? 'Confirmando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalRating && (
+        <div className="modal-overlay" onClick={() => !ratingSaving && setModalRating(null)}>
+          <div className="modal" onClick={ev => ev.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Star size={18} /> Calificar contraparte</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setModalRating(null)} disabled={ratingSaving}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: 'var(--sp-4)', color: 'var(--gris-700)' }}>
+                Califica a <strong>{modalRating.contraparte}</strong> por la entrega de <strong>{modalRating.titulo}</strong>.
+              </p>
+              {ratingError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{ratingError}</div>}
+              <div className="form-group">
+                <label className="form-label">Calificación <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[1, 2, 3, 4, 5].map(score => (
+                    <button
+                      key={score}
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setRatingScore(score)}
+                      aria-label={`${score} estrella${score !== 1 ? 's' : ''}`}
+                      style={{ color: score <= ratingScore ? '#F59E0B' : 'var(--gris-300)', padding: '6px 8px' }}>
+                      <Star size={26} fill={score <= ratingScore ? 'currentColor' : 'none'} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Comentario (opcional)</label>
+                <textarea
+                  className="form-textarea"
+                  rows={3}
+                  value={ratingComment}
+                  onChange={e => setRatingComment(e.target.value)}
+                  placeholder="Describe cómo fue la experiencia..." />
+              </div>
+              <p className="form-hint" style={{ marginTop: 'var(--sp-3)' }}>
+                La calificación quedará pendiente de revisión por la asociación.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setModalRating(null)} disabled={ratingSaving}>Omitir</button>
+              <button className="btn btn-primary" onClick={enviarCalificacion} disabled={ratingSaving || ratingScore < 1}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Star size={15} /> {ratingSaving ? 'Enviando...' : 'Enviar calificación'}
               </button>
             </div>
           </div>
