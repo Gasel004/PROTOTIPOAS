@@ -34,6 +34,8 @@ function normalizePago(p, user) {
 export default function Pagos() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const isProductor = user?.rol === 'productor';
+  const isComprador = user?.rol === 'comprador';
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,8 +49,7 @@ export default function Pagos() {
   const [form, setForm] = useState({ negociacion_id: '', monto: '', metodo_pago: 'efectivo', referencia: '', fecha_pago: '', notas: '' });
   const [formErrors, setFormErrors] = useState({});
 
-  // Modal confirmar pago al productor
-  const [modalPagoProductor, setModalPagoProductor] = useState(null); // pago seleccionado
+  const [modalPagoProductor, setModalPagoProductor] = useState(null);
   const cerrarModalPagoProductor = () => { if (!saving) setModalPagoProductor(null); };
   const modalPagoProductorRef = useModalA11y(!!modalPagoProductor, cerrarModalPagoProductor);
 
@@ -94,10 +95,14 @@ export default function Pagos() {
   function handleNegociacionChange(e) {
     const negId = e.target.value;
     const neg = negociaciones.find(n => String(n.id) === negId);
-    // Calcular monto total = precio_acordado × cantidad_solicitada
-    const montoTotal = neg?.precio_acordado && neg?.cantidad_solicitada
-      ? String(Number(neg.precio_acordado) * Number(neg.cantidad_solicitada))
-      : neg?.precio_acordado ? String(neg.precio_acordado) : '';
+    let montoTotal = '';
+    if (neg?.precio_acordado && neg?.cantidad_solicitada) {
+      const precio = Number(neg.precio_acordado);
+      const cantidad = Number(neg.cantidad_solicitada);
+      montoTotal = String(precio * cantidad);
+    } else if (neg?.precio_acordado) {
+      montoTotal = String(neg.precio_acordado);
+    }
     setForm(f => ({
       ...f,
       negociacion_id: negId,
@@ -105,7 +110,6 @@ export default function Pagos() {
     }));
   }
 
-  // Negociación seleccionada actualmente (para mostrar desglose y bloquear monto)
   const negSeleccionada = negociaciones.find(n => String(n.id) === String(form.negociacion_id)) ?? null;
   const montoCalculado = negSeleccionada?.precio_acordado && negSeleccionada?.cantidad_solicitada
     ? Number(negSeleccionada.precio_acordado) * Number(negSeleccionada.cantidad_solicitada)
@@ -146,7 +150,6 @@ export default function Pagos() {
     }
   }
 
-  // Nuevo: marcar que el productor recibió su pago
   async function marcarPagadoAlProductor(pago) {
     setSaving(true);
     try {
@@ -181,7 +184,7 @@ export default function Pagos() {
           <div className="stat-icon verde"><CheckCircle size={22} /></div>
           <div>
             <div className="stat-value">Q{totales.completado.toLocaleString()}</div>
-            <div className="stat-label">Total pagos completados</div>
+            <div className="stat-label">Total de dinero de pagos obtenidos</div>
           </div>
         </div>
         <div className="stat-card">
@@ -249,13 +252,11 @@ export default function Pagos() {
                           {cfg.icon} {cfg.label}
                         </span>
                       </td>
-
-                      {/* Nueva columna: productor pagado */}
                       <td>
                         {p.estado === 'completado' ? (
                           p.pagado_al_productor
                             ? <span className="badge badge-verde" style={{ display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
-                                <CheckCircle size={12} /> Sí
+                                <CheckCircle size={12} /> Si
                               </span>
                             : <span className="badge badge-oro" style={{ display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
                                 <Clock size={12} /> Pendiente
@@ -264,10 +265,8 @@ export default function Pagos() {
                           <span style={{ color: 'var(--gris-400)', fontSize: '.8125rem' }}>—</span>
                         )}
                       </td>
-
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
-                          {/* Acciones de estado de pago */}
                           {p.estado === 'pendiente' && (
                             <>
                               <button className="btn btn-ghost btn-sm" style={{ color: 'var(--verde-700)', display: 'flex', alignItems: 'center', gap: 4 }}
@@ -286,14 +285,12 @@ export default function Pagos() {
                               <RefreshCw size={13} /> Reembolsar
                             </button>
                           )}
-
-                          {/* Nuevo: botón para marcar que el productor recibió su pago */}
-                          {p.estado === 'completado' && !p.pagado_al_productor && (
+                          {p.estado === 'completado' && !p.pagado_al_productor && user?.rol === 'productor' && (
                             <button
                               className="btn btn-ghost btn-sm"
                               style={{ color: 'var(--verde-700)', display: 'flex', alignItems: 'center', gap: 4 }}
                               onClick={() => setModalPagoProductor(p)}
-                              title="Confirmar que el productor recibió este pago">
+                              title="Confirmar que se recibio el pago">
                               <Truck size={13} /> Pagar productor
                             </button>
                           )}
@@ -309,7 +306,6 @@ export default function Pagos() {
           </div>
       }
 
-      {/* Modal registrar pago nuevo */}
       {modalNew && (
         <div className="modal-overlay" onClick={cerrarModalNew}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalNewRef}>
@@ -330,7 +326,7 @@ export default function Pagos() {
                         <option value="">— Selecciona una negociación —</option>
                         {negociaciones.map(n => (
                           <option key={n.id} value={n.id}>
-                            #{n.id} — {n.publicacion?.titulo ?? 'Sin título'} ({n.estado})
+                            #{n.id} — {n.publicacion?.titulo ?? 'Sin título'} - {n.cantidad_solicitada} unidades a Q{Number(n.precio_acordado).toLocaleString()} c/u = Q{(Number(n.precio_acordado) * Number(n.cantidad_solicitada)).toLocaleString()}
                           </option>
                         ))}
                       </select>
@@ -343,16 +339,19 @@ export default function Pagos() {
                     <label className="form-label">Monto total (Q) <span style={{ color: 'var(--rojo)' }}>*</span></label>
                     <div className="input-group">
                       <span className="input-prefix">Q</span>
-                      <input className="form-input" type="number" min="0.01" step="0.01" placeholder="0.00"
+                      <input className="form-input" type="text" inputMode="decimal" placeholder="0.00"
                         value={form.monto}
-                        onChange={e => { if (!montoCalculado) setForm(f => ({ ...f, monto: e.target.value })); }}
+                        onChange={e => { 
+                          const val = e.target.value.replace(/[^0-9.]/g, '');
+                          if (!montoCalculado) setForm(f => ({ ...f, monto: val }));
+                        }}
                         readOnly={!!montoCalculado}
                         style={montoCalculado ? { background: 'var(--gris-50)', color: 'var(--gris-700)', cursor: 'not-allowed' } : {}}
                         aria-invalid={formErrors.monto ? 'true' : 'false'} />
                     </div>
                     {montoCalculado && negSeleccionada && (
-                      <p style={{ fontSize: '.8rem', color: 'var(--gris-500)', marginTop: 4 }}>
-                        Q{Number(negSeleccionada.precio_acordado).toLocaleString()} &times; {Number(negSeleccionada.cantidad_solicitada).toLocaleString()} {negSeleccionada.publicacion?.unidad_medida ?? 'unidades'}
+                      <p style={{ fontSize: '.8rem', color: 'var(--verde-700)', marginTop: 4, fontWeight: 500 }}>
+                        Q{Number(negSeleccionada.precio_acordado).toLocaleString()} x {Number(negSeleccionada.cantidad_solicitada).toLocaleString()} {negSeleccionada.publicacion?.unidad_medida ?? 'unidades'} = Q{montoCalculado.toLocaleString()}
                       </p>
                     )}
                     {formErrors.monto && <p className="form-error">{formErrors.monto}</p>}
@@ -368,7 +367,7 @@ export default function Pagos() {
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Referencia</label>
-                    <input className="form-input" placeholder="TRF-001..." value={form.referencia}
+                    <input className="form-input" type="text" placeholder="TRF-001..." value={form.referencia}
                       onChange={e => setForm(f => ({ ...f, referencia: e.target.value }))} />
                   </div>
                   <div className="form-group">
@@ -385,7 +384,7 @@ export default function Pagos() {
                 </div>
 
                 <div style={{ marginTop: 'var(--sp-4)', padding: 'var(--sp-3)', background: 'var(--verde-50)', borderRadius: 'var(--radius)', border: '1px solid var(--verde-100)', fontSize: '.8125rem', color: 'var(--verde-800)' }}>
-                  ℹ️ Este es un pago simulado. Solo cambia el estado en el sistema, no procesa dinero real.
+                  Este es un pago simulado. Solo cambia el estado en el sistema, no procesa dinero real.
                 </div>
               </div>
               <div className="modal-footer">
@@ -400,17 +399,16 @@ export default function Pagos() {
         </div>
       )}
 
-      {/* Modal confirmar pago al productor */}
-      {modalPagoProductor && (
+      {modalPagoProductor && isProductor && (
         <div className="modal-overlay" onClick={cerrarModalPagoProductor}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalPagoProductorRef}>
             <div className="modal-header">
-              <h3> Confirmar pago al productor</h3>
+              <h3>Confirmar pago al productor</h3>
               <button className="btn btn-ghost btn-sm" onClick={cerrarModalPagoProductor} disabled={saving}>✕</button>
             </div>
             <div className="modal-body">
               <p style={{ marginBottom: 'var(--sp-4)', color: 'var(--gris-700)' }}>
-                ¿Confirmas que el productor ya recibió este pago?
+                ¿Confirmas que el productor ya recibio este pago?
               </p>
               <div style={{ padding: 'var(--sp-4)', background: 'var(--gris-50)', borderRadius: 'var(--radius)', border: '1px solid var(--gris-200)', marginBottom: 'var(--sp-4)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
@@ -422,12 +420,12 @@ export default function Pagos() {
                   <span style={{ fontWeight: 700, color: 'var(--verde-800)', fontSize: '1.0625rem' }}>Q{modalPagoProductor.monto.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--gris-500)', fontSize: '.875rem' }}>Método</span>
+                  <span style={{ color: 'var(--gris-500)', fontSize: '.875rem' }}>Metodo</span>
                   <span style={{ textTransform: 'capitalize' }}>{modalPagoProductor.metodo_pago}</span>
                 </div>
               </div>
               <div style={{ padding: 'var(--sp-3)', background: 'var(--azul-50)', borderRadius: 'var(--radius)', border: '1px solid var(--azul-100)', fontSize: '.8125rem', color: 'var(--azul-800)' }}>
-                Al confirmar esto, se habilitará la doble confirmación de entrega en la negociación correspondiente.
+                Al confirmar esto, se habilitara la doble confirmacion de entrega en la negociacion correspondiente.
               </div>
             </div>
             <div className="modal-footer">

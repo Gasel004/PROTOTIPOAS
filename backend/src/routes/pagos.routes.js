@@ -7,7 +7,7 @@ r.get('/:id', verificarToken, soloRoles('productor', 'comprador'), c.obtener);
 r.post('/',   verificarToken, soloRoles('productor', 'comprador'), c.crear);
 r.put('/:id', verificarToken, soloRoles('productor', 'comprador'), c.actualizar);
 
-// Nuevo: marcar que el productor recibió su pago (desbloquea confirmación de entrega)
-r.post('/:id/pagar-productor', verificarToken, soloRoles('productor', 'comprador'), c.marcarPagadoAlProductor);
+// SOLO PRODUCTOR puede marcar que recibio el pago
+r.post('/:id/pagar-productor', verificarToken, soloRoles('productor'), c.marcarPagadoAlProductor);
 
 module.exports = r;

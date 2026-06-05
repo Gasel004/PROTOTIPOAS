@@ -53,6 +53,7 @@ async function listar(req, res, next) {
               publicacion:{select:{titulo:true}},
               comprador:{include:{usuario:{select:{nombre:true}}}},
               productor:{include:{usuario:{select:{nombre:true}}}},
+              pagos:{select:{estado:true,pagado_al_productor:true}},
             }
           }
         },
@@ -115,6 +116,17 @@ async function confirmar(req, res, next) {
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para confirmar esta entrega' });
     if (entrega.estado === 'entregado') return res.status(400).json({ success:false, message:'La entrega ya fue completada' });
 
+    // Verificar que el pago al productor esté registrado antes de permitir confirmación
+    const pagoConfirmado = await prisma.pago.findFirst({
+      where: { negociacion_id: entrega.negociacion_id, estado: 'completado', pagado_al_productor: true },
+    });
+    if (!pagoConfirmado) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede confirmar la entrega: el pago al productor aún no ha sido registrado.',
+      });
+    }
+
     const rolConfirmador = esProductor ? 'productor' : esComprador ? 'comprador' : req.user.rol;
     const yaConfirmo = await prisma.confirmacionEntrega.findUnique({ where:{entrega_id_usuario_id:{entrega_id:entregaId,usuario_id:req.user.id}} });
     if (yaConfirmo?.confirmado) return res.status(400).json({ success:false, message:'Ya confirmó previamente esta entrega' });
@@ -130,6 +142,14 @@ async function confirmar(req, res, next) {
     if (confirmoProductor && confirmoComprador) {
       await prisma.entrega.update({ where:{id:entregaId}, data:{estado:'entregado',fecha_realizada:new Date()} });
       await prisma.negociacion.update({ where:{id:entrega.negociacion_id}, data:{estado:'completada'} });
+      // Descontar cantidad de la publicacion
+      const neg = await prisma.negociacion.findUnique({ where:{ id:entrega.negociacion_id } });
+      if (neg) {
+        await prisma.publicacion.update({
+          where: { id: neg.publicacion_id },
+          data: { cantidad_disponible: { decrement: Number(neg.cantidad_solicitada) } },
+        });
+      }
     }
     res.json({ success:true, message:'Confirmación registrada' });
   } catch(e) { next(e); }

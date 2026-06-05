@@ -227,9 +227,9 @@ async function confirmarCierre(req, res, next) {
       // Pasar a EN_TRANSITO y crear la entrega
       const data = await prisma.negociacion.update({
         where: { id: neg.id },
-        data: { ...updateData, estado: 'en transito' },
+        data: { ...updateData, estado: 'en_transito' },
       });
-      await asegurarEntregaParaNegociacion(neg.id, { estado: 'en transito' });
+      await asegurarEntregaParaNegociacion(neg.id, { estado: 'en_transito' });
 
       // Notificar a ambos
       await prisma.notificacion.createMany({

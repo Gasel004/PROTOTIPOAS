@@ -5,8 +5,6 @@ import api from '../api/client';
 import { getFullImageUrl } from '../api/utils';
 import { useModalA11y } from '../hooks/useModalA11y';
 
-
-
 function normalizePub(p) {
   return {
     ...p,
@@ -32,7 +30,7 @@ export default function DetallePublicacion() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
-  const isGuest = !user;                          // visitante sin sesión
+  const isGuest = !user;
   const isPublicRoute = location.pathname.startsWith('/catalogo-publico');
   const isComprador = user?.rol === 'comprador';
 
@@ -56,7 +54,7 @@ export default function DetallePublicacion() {
       .then(r => setPub(r.data?.data ? normalizePub(r.data.data) : null))
       .catch(err => {
         if (ac.signal.aborted || err?.code === 'ERR_CANCELED') return;
-        setLoadError(err.response?.data?.message ?? 'No se pudo cargar la publicación');
+        setLoadError(err.response?.data?.message ?? 'No se pudo cargar la publicacion');
         setPub(null);
       })
       .finally(() => { if (!ac.signal.aborted) setLoading(false); });
@@ -73,8 +71,13 @@ export default function DetallePublicacion() {
 
   async function iniciarNegociacion(e) {
     e.preventDefault();
-    if (!negForm.cantidad_solicitada || Number(negForm.cantidad_solicitada) <= 0) {
-      setNegFormError('Ingresa una cantidad válida');
+    const cantidadNum = parseFloat(negForm.cantidad_solicitada);
+    if (!negForm.cantidad_solicitada || isNaN(cantidadNum) || cantidadNum <= 0) {
+      setNegFormError('Ingresa una cantidad valida');
+      return;
+    }
+    if (cantidadNum > pub.cantidad_disponible) {
+      setNegFormError(`La cantidad no puede exceder ${pub.cantidad_disponible} ${pub.unidad_medida}s disponibles`);
       return;
     }
     setNegFormError('');
@@ -83,19 +86,19 @@ export default function DetallePublicacion() {
     try {
       await api.post('/negociaciones', {
         publicacion_id: Number(id),
-        cantidad_solicitada: Number(negForm.cantidad_solicitada),
+        cantidad_solicitada: cantidadNum,
         condiciones: negForm.condiciones,
       });
       setNegOk(true);
       setTimeout(() => { setModalNeg(false); navigate('/negociaciones'); }, 1800);
     } catch (err) {
-      setSendError(err.response?.data?.message ?? 'No se pudo iniciar la negociación');
+      setSendError(err.response?.data?.message ?? 'No se pudo iniciar la negociacion');
     } finally { setSending(false); }
   }
 
   if (loading) return <div className="loader-wrap"><div className="spinner" /></div>;
-  if (loadError) return <div className="empty-state card"><h3>No se pudo cargar la publicación</h3><p>{loadError}</p></div>;
-  if (!pub) return <div className="empty-state"><h3>Publicación no encontrada</h3></div>;
+  if (loadError) return <div className="empty-state card"><h3>No se pudo cargar la publicacion</h3><p>{loadError}</p></div>;
+  if (!pub) return <div className="empty-state"><h3>Publicacion no encontrada</h3></div>;
 
   const total = pub.precio_unitario * pub.cantidad_disponible;
 
@@ -109,9 +112,7 @@ export default function DetallePublicacion() {
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        {/* Columna principal */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-          {/* Info principal */}
           <div className="card scale-in">
             {pub.imagen_url && (
               <div className="detalle-pub-image-wrap">
@@ -142,13 +143,12 @@ export default function DetallePublicacion() {
 
               <div className="divider" />
 
-              {/* Detalles en grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-4)' }}>
                 {[
-                  [' Disponible', `${pub.cantidad_disponible} ${pub.unidad_medida}s`],
-                  [' Ubicación', `${pub.municipio}, ${pub.departamento}`],
-                  [' Cosecha', pub.fecha_cosecha ?? 'No especificada'],
-                  [' Valor total', `Q${total.toLocaleString()}`],
+                  ['Disponible', `${pub.cantidad_disponible} ${pub.unidad_medida}s`],
+                  ['Ubicacion', `${pub.municipio}, ${pub.departamento}`],
+                  ['Cosecha', pub.fecha_cosecha ?? 'No especificada'],
+                  ['Valor total', `Q${total.toLocaleString()}`],
                 ].map(([lbl, val]) => (
                   <div key={lbl}>
                     <div style={{ fontSize: '.8rem', color: 'var(--gris-500)', marginBottom: 3 }}>{lbl}</div>
@@ -159,18 +159,16 @@ export default function DetallePublicacion() {
 
               {pub.descripcion && <>
                 <div className="divider" />
-            <div>
-              <div style={{ fontSize: '.875rem', fontWeight: 600, marginBottom: 'var(--sp-2)' }}>Descripción</div>
-              <p style={{ color: 'var(--gris-700)', fontSize: '.9375rem', lineHeight: 1.7 }}>{pub.descripcion}</p>
-            </div>
+                <div>
+                  <div style={{ fontSize: '.875rem', fontWeight: 600, marginBottom: 'var(--sp-2)' }}>Descripcion</div>
+                  <p style={{ color: 'var(--gris-700)', fontSize: '.9375rem', lineHeight: 1.7 }}>{pub.descripcion}</p>
+                </div>
               </>}
             </div>
           </div>
         </div>
 
-        {/* Columna lateral */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
-          {/* Card acción */}
           <div className="card">
             <div className="card-body">
               <div style={{ textAlign: 'center', marginBottom: 'var(--sp-5)' }}>
@@ -184,7 +182,6 @@ export default function DetallePublicacion() {
               </div>
 
               {isGuest ? (
-                /* ── Visitante sin sesión ── */
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ color: 'var(--gris-600)', fontSize: '.9rem', marginBottom: 'var(--sp-4)', lineHeight: 1.6 }}>
                     Para negociar o comprar este producto necesitas una cuenta.
@@ -196,13 +193,13 @@ export default function DetallePublicacion() {
                     </button>
                     <button className="btn btn-ghost btn-full"
                       onClick={() => navigate('/login')}>
-                      Ya tengo cuenta — Iniciar sesión
+                      Ya tengo cuenta — Iniciar sesion
                     </button>
                   </div>
                 </div>
               ) : isComprador && pub.estado === 'activa' ? (
                 <button className="btn btn-primary btn-full btn-lg" onClick={abrirModalNeg}>
-                  Iniciar negociación
+                  Iniciar negociacion
                 </button>
               ) : !isComprador ? (
                 <div className="alert alert-info" style={{ textAlign: 'center', fontSize: '.875rem' }}>
@@ -210,15 +207,14 @@ export default function DetallePublicacion() {
                 </div>
               ) : (
                 <div className="alert alert-warn" style={{ textAlign: 'center' }}>
-                  Esta publicación no está disponible
+                  Esta publicacion no esta disponible
                 </div>
               )}
             </div>
           </div>
 
-          {/* Card productor */}
           <div className="card">
-            <div className="card-header"><h4> Sobre el productor</h4></div>
+            <div className="card-header"><h4>Sobre el productor</h4></div>
             <div className="card-body">
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
                 <div style={{
@@ -239,9 +235,9 @@ export default function DetallePublicacion() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
                 {[
-                  [' Calificación', `${pub.productor?.calificacion}/5`],
-                  [' Publicaciones', pub.productor?.publicaciones],
-                  [' Entregas completadas', pub.productor?.negociaciones_completadas],
+                  ['Calificacion', `${pub.productor?.calificacion}/5`],
+                  ['Publicaciones', pub.productor?.publicaciones],
+                  ['Entregas completadas', pub.productor?.negociaciones_completadas],
                 ].map(([lbl, val]) => (
                   <div key={lbl} style={{ background: 'var(--gris-50)', borderRadius: 'var(--radius)', padding: 'var(--sp-3)' }}>
                     <div style={{ fontSize: '.75rem', color: 'var(--gris-500)' }}>{lbl}</div>
@@ -254,53 +250,59 @@ export default function DetallePublicacion() {
         </div>
       </div>
 
-      {/* Modal negociación */}
       {modalNeg && (
         <div className="modal-overlay" onClick={cerrarModalNeg}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalNegRef}>
             <div className="modal-header">
-              <h3> Iniciar negociación</h3>
-              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}></button>
+              <h3>Iniciar negociacion</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}>x</button>
             </div>
             {negOk
               ? <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--sp-10)' }}>
-                <div style={{ fontSize: '3rem', marginBottom: 'var(--sp-3)' }}></div>
-                <h3>¡Negociación iniciada!</h3>
-                <p className="text-muted">El productor recibirá una notificación. Redirigiendo...</p>
-              </div>
+                  <div style={{ fontSize: '3rem', marginBottom: 'var(--sp-3)' }}>✓</div>
+                  <h3>¡Negociacion iniciada!</h3>
+                  <p className="text-muted">El productor recibira una notificacion. Redirigiendo...</p>
+                </div>
               : <form onSubmit={iniciarNegociacion} noValidate>
-                <div className="modal-body">
-                  {sendError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{sendError}</div>}
-                  <div className="form-group">
-                    <label className="form-label">Cantidad solicitada ({pub.unidad_medida}s) <span style={{ color: 'var(--rojo)' }}>*</span></label>
-                <input className="form-input" type="number" min="1" max={pub.cantidad_disponible}
-                  value={negForm.cantidad_solicitada}
-                  onChange={e=>setNegForm(f => ({ ...f, cantidad_solicitada: e.target.value }))}
-                  placeholder={`Máx: ${pub.cantidad_disponible}`}
-                  aria-invalid={negFormError ? 'true' : 'false'} />
-                    <p className="form-hint">Disponibles: {pub.cantidad_disponible} {pub.unidad_medida}s</p>
-                    {negFormError && <p className="form-error">{negFormError}</p>}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Condiciones iniciales</label>
-                    <textarea className="form-textarea" rows={3}
-                      value={negForm.condiciones}
-                      onChange={e => setNegForm(f => ({ ...f, condiciones: e.target.value }))}
-                      placeholder="Pago al contado, recojo en finca, requiero factura..." />
-                  </div>
-                  {negForm.cantidad_solicitada && !negFormError && (
-                    <div className="alert alert-success">
-                      Total estimado: <strong>Q{(pub.precio_unitario * Number(negForm.cantidad_solicitada)).toLocaleString()}</strong>
+                  <div className="modal-body">
+                    {sendError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{sendError}</div>}
+                    <div className="form-group">
+                      <label className="form-label">Cantidad solicitada ({pub.unidad_medida}s) <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                      <input 
+                        className="form-input" 
+                        type="text" 
+                        inputMode="numeric"
+                        value={negForm.cantidad_solicitada}
+                        onChange={e => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          setNegForm(f => ({ ...f, cantidad_solicitada: val }));
+                        }}
+                        placeholder={`Max: ${pub.cantidad_disponible}`}
+                        aria-invalid={negFormError ? 'true' : 'false'} 
+                      />
+                      <p className="form-hint">Disponibles: {pub.cantidad_disponible} {pub.unidad_medida}s</p>
+                      {negFormError && <p className="form-error">{negFormError}</p>}
                     </div>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-ghost" onClick={cerrarModalNeg} disabled={sending}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary" disabled={sending}>
-                    {sending ? ' Enviando...' : ' Enviar solicitud'}
-                  </button>
-                </div>
-              </form>
+                    <div className="form-group">
+                      <label className="form-label">Condiciones iniciales</label>
+                      <textarea className="form-textarea" rows={3}
+                        value={negForm.condiciones}
+                        onChange={e => setNegForm(f => ({ ...f, condiciones: e.target.value }))}
+                        placeholder="Pago al contado, recojo en finca, requiero factura..." />
+                    </div>
+                    {negForm.cantidad_solicitada && !negFormError && (
+                      <div className="alert alert-success">
+                        Cantidad: {negForm.cantidad_solicitada} {pub.unidad_medida}s x Q{pub.precio_unitario.toLocaleString()} = <strong>Q{(pub.precio_unitario * parseFloat(negForm.cantidad_solicitada)).toLocaleString()}</strong>
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-ghost" onClick={cerrarModalNeg} disabled={sending}>Cancelar</button>
+                    <button type="submit" className="btn btn-primary" disabled={sending}>
+                      {sending ? 'Enviando...' : 'Enviar solicitud'}
+                    </button>
+                  </div>
+                </form>
             }
           </div>
         </div>

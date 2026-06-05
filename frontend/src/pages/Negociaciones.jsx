@@ -84,7 +84,7 @@ export default function Negociaciones() {
       <div className="page-header">
         <div>
           <h1>Negociaciones</h1>
-          <p className="text-muted">{negs.length} negociación{negs.length !== 1 ? 'es' : ''} en total</p>
+          <p className="text-muted">{negs.length} negociacion{negs.length !== 1 ? 'es' : ''} en total</p>
         </div>
         {!isProductor && (
           <button className="btn btn-primary" onClick={() => navigate('/publicaciones')}
@@ -155,9 +155,13 @@ export default function Negociaciones() {
                             <div style={{ fontFamily:'var(--font-display)', fontSize:'1.25rem', fontWeight:700, color:'var(--verde-800)' }}>
                               Q{neg.precio_acordado}/{neg.unidad_medida}
                             </div>
-                            {total && <div style={{ fontSize:'.8rem', color:'var(--gris-500)' }}>Total: Q{total.toLocaleString()}</div>}
+                            {total && (
+                              <div style={{ fontSize:'.8rem', color:'var(--gris-500)' }}>
+                                {neg.cantidad_solicitada} {neg.unidad_medida} x Q{neg.precio_acordado} = Q{total.toLocaleString()}
+                              </div>
+                            )}
                           </>
-                        : <div style={{ fontSize:'.875rem', color:'var(--gris-400)', fontStyle:'italic' }}>Sin precio aún</div>
+                        : <div style={{ fontSize:'.875rem', color:'var(--gris-400)', fontStyle:'italic' }}>Sin precio aun</div>
                       }
                     </div>
                     <span className={`badge ${cfg.badge}`} style={{ whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:4 }}>
@@ -175,3 +179,5 @@ export default function Negociaciones() {
     </div>
   );
 }
+
+

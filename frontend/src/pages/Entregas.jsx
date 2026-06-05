@@ -26,6 +26,10 @@ function normalizeEntrega(e, user) {
     ? e.negociacion?.comprador?.usuario?.nombre
     : e.negociacion?.productor?.usuario?.nombre;
 
+  // Verificar si el pago está completo y pagado al productor
+  const pagos = e.negociacion?.pagos ?? [];
+  const pagado_al_productor = e.pagado_al_productor ?? pagos.some(p => p.estado === 'completado' && p.pagado_al_productor);
+
   return {
     ...e,
     titulo: e.negociacion?.publicacion?.titulo ?? e.titulo ?? 'Entrega',
@@ -33,6 +37,7 @@ function normalizeEntrega(e, user) {
     fecha_programada: e.fecha_programada ? String(e.fecha_programada).slice(0, 10) : '',
     confirmacion_productor,
     confirmacion_comprador,
+    pagado_al_productor,
   };
 }
 
@@ -157,14 +162,19 @@ export default function Entregas() {
                     </div>
 
                     {e.estado !== 'entregado' && (
-                      <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
-                        {!yoConfirm && (
+                      <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {!e.pagado_al_productor && (
+                          <div style={{ padding: 'var(--sp-2) var(--sp-3)', background: 'var(--oro-50)', border: '1px solid var(--oro-200)', borderRadius: 'var(--radius)', fontSize: '.8125rem', color: 'var(--oro-800)' }}>
+                            Pendiente: el pago al productor debe registrarse antes de confirmar la entrega.
+                          </div>
+                        )}
+                        {e.pagado_al_productor && !yoConfirm && (
                           <button className="btn btn-primary btn-sm" onClick={() => setModalConf(e)}
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <CheckCircle size={14} /> Confirmar entrega
                           </button>
                         )}
-                        {yoConfirm && !elConfirm && (
+                        {e.pagado_al_productor && yoConfirm && !elConfirm && (
                           <div className="alert alert-info" style={{ padding: 'var(--sp-2) var(--sp-4)', fontSize: '.875rem' }}>
                             Esperando confirmación de la otra parte
                           </div>
@@ -187,7 +197,7 @@ export default function Entregas() {
         <div className="modal-overlay" onClick={cerrarModalConf}>
           <div className="modal" onClick={ev => ev.stopPropagation()} ref={modalConfRef}>
             <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle size={18} /> Confirmar entrega</h3>
+              <h3>Confirmar entrega</h3>
               <button className="btn btn-ghost btn-sm" onClick={cerrarModalConf} disabled={confirming}>✕</button>
             </div>
             <div className="modal-body">
