@@ -156,6 +156,15 @@ model Negociacion {
   estado                 EstadoNegociacion @default(pendiente)
   condiciones            String?
   fecha_entrega_acordada DateTime? @db.Date
+
+  // Doble confirmación de cierre (cuando hay acuerdo de precio)
+  confirma_cierre_productor  Boolean @default(false)
+  confirma_cierre_comprador  Boolean @default(false)
+
+  // Doble confirmación de entrega (cuando está en tránsito)
+  confirma_entrega_productor Boolean @default(false)
+  confirma_entrega_comprador Boolean @default(false)
+
   created_at             DateTime @default(now())
   updated_at             DateTime @updatedAt
 
@@ -180,6 +189,9 @@ enum EstadoNegociacion {
   rechazada
   completada
   cancelada
+  // Nuevos estados para el flujo mejorado
+  acuerdo_pendiente   // Precio acordado, esperando doble confirmación de cierre
+  en_transito         // Ambos confirmaron cierre, entrega en camino
 }
 
 model Mensaje {
@@ -242,16 +254,19 @@ model ConfirmacionEntrega {
 }
 
 model Pago {
-  id             Int      @id @default(autoincrement())
-  negociacion_id Int
-  monto          Decimal  @db.Decimal(12,2)
-  metodo_pago    String   @db.VarChar(50)
-  referencia     String?  @db.VarChar(200)
-  estado         EstadoPago @default(pendiente)
-  fecha_pago     DateTime? @db.Date
-  registrado_por Int?
-  notas          String?
-  created_at     DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  negociacion_id       Int
+  monto                Decimal  @db.Decimal(12,2)
+  metodo_pago          String   @db.VarChar(50)
+  referencia           String?  @db.VarChar(200)
+  estado               EstadoPago @default(pendiente)
+  fecha_pago           DateTime? @db.Date
+  registrado_por       Int?
+  notas                String?
+  // Campo nuevo: confirma que el productor recibió su pago
+  pagado_al_productor  Boolean  @default(false)
+  fecha_pago_productor DateTime? @db.Date
+  created_at           DateTime @default(now())
 
   negociacion  Negociacion @relation(fields: [negociacion_id], references: [id])
   registrador  Usuario?    @relation("PagosRegistrados", fields: [registrado_por], references: [id])

@@ -106,4 +106,48 @@ async function actualizar(req, res, next) {
   } catch(e) { next(e); }
 }
 
-module.exports = { listar, obtener, crear, actualizar };
+// ─────────────────────────────────────────────────────────────
+// NUEVO: Marcar que el productor recibió su pago
+// Solo se puede hacer cuando el pago está 'completado'
+// Esto desbloquea la doble confirmación de entrega
+// ─────────────────────────────────────────────────────────────
+async function marcarPagadoAlProductor(req, res, next) {
+  try {
+    const { pago, participa } = await obtenerPagoParticipante(Number(req.params.id), req.user.id);
+    if (!pago) return res.status(404).json({ success:false, message:'No encontrado' });
+    if (!participa) return res.status(403).json({ success:false, message:'Sin permiso' });
+
+    if (pago.estado !== 'completado') {
+      return res.status(400).json({ success:false, message:'El pago debe estar completado antes de marcarlo como pagado al productor' });
+    }
+
+    if (pago.pagado_al_productor) {
+      return res.status(400).json({ success:false, message:'Este pago ya fue marcado como pagado al productor' });
+    }
+
+    const data = await prisma.pago.update({
+      where: { id: pago.id },
+      data: { pagado_al_productor: true, fecha_pago_productor: new Date() },
+    });
+
+    // Notificar al productor
+    const productorUsuarioId = pago.negociacion?.productor?.usuario_id;
+    if (productorUsuarioId) {
+      await prisma.notificacion.create({
+        data: {
+          usuario_id: productorUsuarioId,
+          tipo: 'pago_recibido',
+          titulo: 'Pago registrado a tu favor',
+          mensaje: `Se ha registrado el pago de Q${Number(pago.monto).toLocaleString()} en tu negociación.`,
+          referencia_id: pago.negociacion_id,
+        },
+      });
+    }
+
+    res.json({ success:true, data, message: 'Pago al productor registrado. Ya pueden confirmar la entrega.' });
+  } catch(e) { next(e); }
+}
+
+module.exports = { listar, obtener, crear, actualizar, marcarPagadoAlProductor };
+
+
