@@ -89,6 +89,15 @@ async function crear(req, res, next) {
     const { negociacion, participa } = await obtenerNegociacionParticipante(Number(negociacion_id), req.user.id);
     if (!negociacion) return res.status(404).json({ success:false, message:'Negociación no encontrada' });
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para registrar pagos en esta negociación' });
+    const pagoActivo = await prisma.pago.findFirst({
+      where: {
+        negociacion_id: Number(negociacion_id),
+        estado: { in: ['pendiente', 'completado', 'reembolsado'] },
+      },
+    });
+    if (pagoActivo) {
+      return res.status(409).json({ success:false, message:'Esta negociación ya tiene un pago registrado' });
+    }
     const data = await prisma.pago.create({ data:{negociacion_id:Number(negociacion_id),monto:Number(monto),metodo_pago:metodo,referencia,fecha_pago:fecha_pago?new Date(fecha_pago):null,notas,registrado_por:req.user.id} });
     res.status(201).json({ success:true, data });
   } catch(e) { next(e); }
@@ -160,4 +169,3 @@ async function marcarPagadoAlProductor(req, res, next) {
 }
 
 module.exports = { listar, obtener, crear, actualizar, marcarPagadoAlProductor };
-

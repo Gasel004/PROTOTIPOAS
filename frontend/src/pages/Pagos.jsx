@@ -84,6 +84,14 @@ export default function Pagos() {
 
   const filtrados = useMemo(() => filtro === 'Todos' ? pagos : pagos.filter(p => p.estado === filtro), [pagos, filtro]);
   const pag = usePagination(filtrados, 10);
+  const negociacionesPendientesPago = useMemo(() => {
+    const negociacionesConPagoActivo = new Set(
+      pagos
+        .filter(p => p.estado !== 'fallido')
+        .map(p => Number(p.negociacion_id))
+    );
+    return negociaciones.filter(n => !negociacionesConPagoActivo.has(Number(n.id)));
+  }, [negociaciones, pagos]);
 
   function abrirModalNuevo() {
     setForm({ negociacion_id: '', monto: '', metodo_pago: 'efectivo', referencia: '', fecha_pago: new Date().toISOString().slice(0,10), notas: '' });
@@ -94,7 +102,7 @@ export default function Pagos() {
 
   function handleNegociacionChange(e) {
     const negId = e.target.value;
-    const neg = negociaciones.find(n => String(n.id) === negId);
+    const neg = negociacionesPendientesPago.find(n => String(n.id) === negId);
     let montoTotal = '';
     if (neg?.precio_acordado && neg?.cantidad_solicitada) {
       const precio = Number(neg.precio_acordado);
@@ -110,7 +118,7 @@ export default function Pagos() {
     }));
   }
 
-  const negSeleccionada = negociaciones.find(n => String(n.id) === String(form.negociacion_id)) ?? null;
+  const negSeleccionada = negociacionesPendientesPago.find(n => String(n.id) === String(form.negociacion_id)) ?? null;
   const montoCalculado = negSeleccionada?.precio_acordado && negSeleccionada?.cantidad_solicitada
     ? Number(negSeleccionada.precio_acordado) * Number(negSeleccionada.cantidad_solicitada)
     : null;
@@ -319,12 +327,12 @@ export default function Pagos() {
 
                 <div className="form-group">
                   <label className="form-label">Negociación <span style={{ color: 'var(--rojo)' }}>*</span></label>
-                  {negociaciones.length === 0
-                    ? <p className="text-muted" style={{ fontSize: '.875rem' }}>No tienes negociaciones disponibles.</p>
+                  {negociacionesPendientesPago.length === 0
+                    ? <p className="text-muted" style={{ fontSize: '.875rem' }}>No tienes pagos pendientes por registrar.</p>
                     : <select className="form-select" value={form.negociacion_id} onChange={handleNegociacionChange}
                         aria-invalid={formErrors.negociacion_id ? 'true' : 'false'}>
                         <option value="">— Selecciona una negociación —</option>
-                        {negociaciones.map(n => (
+                        {negociacionesPendientesPago.map(n => (
                           <option key={n.id} value={n.id}>
                             #{n.id} — {n.publicacion?.titulo ?? 'Sin título'} - {n.cantidad_solicitada} unidades a Q{Number(n.precio_acordado).toLocaleString()} c/u = Q{(Number(n.precio_acordado) * Number(n.cantidad_solicitada)).toLocaleString()}
                           </option>

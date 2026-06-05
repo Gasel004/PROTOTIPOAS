@@ -4,7 +4,7 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import {
   LayoutDashboard, Package, PlusCircle, Handshake, Truck, CreditCard,
-  User, Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch
+  Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch
 } from 'lucide-react';
 
 const NAV_ITEMS = {
@@ -163,11 +163,6 @@ export default function Layout() {
               {item.label}
             </NavLink>
           ))}
-          <div className="nav-section-label" style={{ marginTop:'1.5rem' }}>Cuenta</div>
-          <NavLink to="/perfil" onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-            <span className="nav-icon"><User size={18}/></span>
-            Mi Perfil
-          </NavLink>
         </nav>
 
         <div className="sidebar-footer">

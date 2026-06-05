@@ -129,7 +129,7 @@ async function ofertarPrecio(req, res, next) {
   try {
     const neg = await prisma.negociacion.findUnique({
       where: { id: Number(req.params.id) },
-      include: { comprador: true, productor: true },
+      include: { comprador: true, productor: true, publicacion: true },
     });
     if (!neg) return res.status(404).json({ success:false, message:'No encontrada' });
 
@@ -141,21 +141,35 @@ async function ofertarPrecio(req, res, next) {
       return res.status(400).json({ success:false, message:`No se puede ofertar en estado "${neg.estado}"` });
     }
 
-    const { precio } = req.body;
+    const { precio, cantidad_solicitada } = req.body;
     if (!precio || Number(precio) <= 0) return res.status(400).json({ success:false, message:'Precio inválido' });
 
     const precioNum = Number(precio);
+    const cantidadNum = cantidad_solicitada === undefined || cantidad_solicitada === null || cantidad_solicitada === ''
+      ? Number(neg.cantidad_solicitada)
+      : Number(cantidad_solicitada);
+    if (!cantidadNum || cantidadNum <= 0) {
+      return res.status(400).json({ success:false, message:'Cantidad inválida' });
+    }
+    if (cantidadNum > Number(neg.publicacion.cantidad_disponible)) {
+      return res.status(400).json({
+        success:false,
+        message:`Solo hay ${Number(neg.publicacion.cantidad_disponible)} ${neg.publicacion.unidad_medida} disponibles. No puedes solicitar ${cantidadNum}.`,
+      });
+    }
 
     // Si el otro participante ya propuso este mismo precio → acuerdo
     const precioActual = neg.precio_acordado ? Number(neg.precio_acordado) : null;
-    const hayAcuerdo = precioActual !== null && precioActual === precioNum;
+    const cantidadActual = Number(neg.cantidad_solicitada);
+    const hayAcuerdo = precioActual !== null && precioActual === precioNum && cantidadActual === cantidadNum;
 
     const data = await prisma.negociacion.update({
       where: { id: neg.id },
       data: {
         precio_acordado: precioNum,
+        cantidad_solicitada: cantidadNum,
         estado: hayAcuerdo ? 'acuerdo_pendiente' : (neg.estado === 'pendiente' ? 'en_proceso' : neg.estado),
-        // Resetear confirmaciones si cambia el precio
+        // Resetear confirmaciones si cambia la oferta
         confirma_cierre_productor: false,
         confirma_cierre_comprador: false,
       },
@@ -169,8 +183,8 @@ async function ofertarPrecio(req, res, next) {
         tipo: 'oferta_precio',
         titulo: hayAcuerdo ? '¡Acuerdo de precio alcanzado!' : 'Nueva oferta de precio',
         mensaje: hayAcuerdo
-          ? `Se ha alcanzado un acuerdo a Q${precioNum}. Confirma el trato para proceder.`
-          : `${esProductor ? 'El productor' : 'El comprador'} propone Q${precioNum} por unidad.`,
+          ? `Se ha alcanzado un acuerdo a Q${precioNum} por ${cantidadNum} ${neg.publicacion.unidad_medida}. Confirma el trato para proceder.`
+          : `${esProductor ? 'El productor' : 'El comprador'} propone Q${precioNum} por unidad y ${cantidadNum} ${neg.publicacion.unidad_medida}.`,
         referencia_id: neg.id,
       },
     });

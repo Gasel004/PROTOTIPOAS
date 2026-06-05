@@ -12,6 +12,7 @@ function normalizeNeg(n) {
     titulo: n.publicacion?.titulo ?? n.titulo ?? 'Negociación',
     cantidad_solicitada: Number(n.cantidad_solicitada ?? 0),
     precio_acordado: n.precio_acordado == null ? null : Number(n.precio_acordado),
+    precio_inicial: n.publicacion?.precio_unitario == null ? null : Number(n.publicacion.precio_unitario),
     unidad_medida: n.publicacion?.unidad_medida ?? n.unidad_medida ?? 'unidad',
     created_at: n.created_at ? String(n.created_at).slice(0, 10) : '',
     fecha_entrega_acordada: n.fecha_entrega_acordada ? String(n.fecha_entrega_acordada).slice(0, 10) : null,
@@ -78,6 +79,7 @@ export default function DetalleNegociacion() {
   const cerrarModalOferta = () => { if (!sending) setModalOferta(false); };
   const modalOfertaRef = useModalA11y(modalOferta, cerrarModalOferta);
   const [precioForm, setPrecioForm] = useState('');
+  const [cantidadForm, setCantidadForm] = useState('');
 
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
 
@@ -183,15 +185,24 @@ export default function DetalleNegociacion() {
 
   async function enviarOferta() {
     const precioNum = parseFloat(precioForm);
+    const cantidadNum = parseFloat(cantidadForm);
     if (!precioForm || isNaN(precioNum) || precioNum <= 0) return;
+    if (!cantidadForm || isNaN(cantidadNum) || cantidadNum <= 0) {
+      setEstadoError('Ingresa una cantidad válida para la oferta');
+      return;
+    }
     setSending(true);
     setEstadoError('');
     try {
-      const res = await api.post(`/negociaciones/${id}/ofertar`, { precio: precioNum });
+      const res = await api.post(`/negociaciones/${id}/ofertar`, {
+        precio: precioNum,
+        cantidad_solicitada: cantidadNum,
+      });
       setNeg(prev => normalizeNeg({ ...prev, ...res.data.data }));
       setAccionMsg(res.data.message ?? 'Oferta enviada');
       setModalOferta(false);
       setPrecioForm('');
+      setCantidadForm('');
       setTimeout(() => setAccionMsg(''), 4000);
     } catch (err) {
       setEstadoError(err.response?.data?.message ?? 'No se pudo enviar la oferta');
@@ -220,6 +231,8 @@ export default function DetalleNegociacion() {
   const isComprador = user?.rol === 'comprador';
   const miId = user?.id;
   const total = neg.precio_acordado ? neg.precio_acordado * neg.cantidad_solicitada : null;
+  const totalOferta = precioForm && cantidadForm ? parseFloat(precioForm) * parseFloat(cantidadForm) : null;
+  const cantidadDisponible = Number(neg.publicacion?.cantidad_disponible ?? 0);
 
   const yoConfirmeCierre = isProductor ? neg.confirma_cierre_productor : neg.confirma_cierre_comprador;
   const otroConfirmoCierre = isProductor ? neg.confirma_cierre_comprador : neg.confirma_cierre_productor;
@@ -294,8 +307,12 @@ export default function DetalleNegociacion() {
                     )}
                   </div>
                 )}
-                <button className="btn btn-primary btn-full" onClick={() => { setPrecioForm(neg.precio_acordado ? String(neg.precio_acordado) : ''); setModalOferta(true); }}>
-                  {neg.precio_acordado ? 'Contra-ofertar precio' : 'Proponer precio'}
+                <button className="btn btn-primary btn-full" onClick={() => {
+                  setPrecioForm(neg.precio_acordado ? String(neg.precio_acordado) : '');
+                  setCantidadForm(neg.cantidad_solicitada ? String(neg.cantidad_solicitada) : '');
+                  setModalOferta(true);
+                }}>
+                  {neg.precio_acordado ? 'Contra-ofertar' : 'Proponer oferta'}
                 </button>
                 {neg.estado === 'acuerdo_pendiente' && (
                   <div style={{ marginTop: 'var(--sp-3)', fontSize: '.8125rem', color: 'var(--verde-700)', background: 'var(--verde-50)', padding: 'var(--sp-2) var(--sp-3)', borderRadius: 'var(--radius)' }}>
@@ -407,6 +424,7 @@ export default function DetalleNegociacion() {
             <div className="card-body">
               {[
                 ['Cantidad', `${neg.cantidad_solicitada} ${neg.unidad_medida}`],
+                ['Precio inicial', neg.precio_inicial ? `Q${neg.precio_inicial}/${neg.unidad_medida}` : '—'],
                 ['Precio acordado', neg.precio_acordado ? `Q${neg.precio_acordado}/${neg.unidad_medida}` : 'Sin acordar'],
                 ['Total estimado', total ? `Q${total.toLocaleString()}` : '—'],
                 ['Entrega', neg.fecha_entrega_acordada ?? 'Sin definir'],
@@ -465,38 +483,62 @@ export default function DetalleNegociacion() {
         <div className="modal-overlay" onClick={cerrarModalOferta}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalOfertaRef}>
             <div className="modal-header">
-              <h3>{neg.precio_acordado ? 'Contra-ofertar' : 'Proponer precio'}</h3>
+              <h3>{neg.precio_acordado ? 'Contra-ofertar' : 'Proponer oferta'}</h3>
               <button className="btn btn-ghost btn-sm" onClick={cerrarModalOferta} disabled={sending}>x</button>
             </div>
             <div className="modal-body">
-              <div className="form-group">
-                <label className="form-label">Precio por {neg.unidad_medida} <span style={{ color: 'var(--rojo)' }}>*</span></label>
-                <div className="input-group">
-                  <span className="input-prefix">Q</span>
-                  <input 
-                    className="form-input" 
-                    type="text" 
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Precio por {neg.unidad_medida} <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                  <div className="input-group">
+                    <span className="input-prefix">Q</span>
+                    <input 
+                      className="form-input" 
+                      type="text" 
+                      inputMode="decimal"
+                      value={precioForm} 
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '');
+                        const partes = val.split('.');
+                        const sanitizado = partes[0] + (partes[1] !== undefined ? '.' + partes[1].slice(0,2) : '');
+                        setPrecioForm(sanitizado);
+                      }}
+                      placeholder="0.00" 
+                      autoFocus 
+                    />
+                  </div>
+                  {neg.precio_inicial && (
+                    <p className="form-hint">Precio inicial: Q{neg.precio_inicial.toLocaleString()}/{neg.unidad_medida}</p>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Cantidad <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                  <input
+                    className="form-input"
+                    type="text"
                     inputMode="decimal"
-                    value={precioForm} 
+                    value={cantidadForm}
                     onChange={e => {
                       const val = e.target.value.replace(/[^0-9.]/g, '');
                       const partes = val.split('.');
                       const sanitizado = partes[0] + (partes[1] !== undefined ? '.' + partes[1].slice(0,2) : '');
-                      setPrecioForm(sanitizado);
+                      setCantidadForm(sanitizado);
                     }}
-                    placeholder="0.00" 
-                    autoFocus 
+                    placeholder="0"
                   />
+                  {cantidadDisponible > 0 && (
+                    <p className="form-hint">Disponibles: {cantidadDisponible.toLocaleString()} {neg.unidad_medida}</p>
+                  )}
                 </div>
               </div>
-              {precioForm && parseFloat(precioForm) > 0 && (
+              {totalOferta && totalOferta > 0 && (
                 <div className="alert alert-success">
-                  Cantidad: {neg.cantidad_solicitada} {neg.unidad_medida} x Q{parseFloat(precioForm).toLocaleString()} = <strong>Q{(parseFloat(precioForm) * neg.cantidad_solicitada).toLocaleString()}</strong>
+                  Cantidad: {Number(cantidadForm).toLocaleString()} {neg.unidad_medida} x Q{parseFloat(precioForm).toLocaleString()} = <strong>Q{totalOferta.toLocaleString()}</strong>
                 </div>
               )}
-              {neg.precio_acordado && precioForm && parseFloat(precioForm) === neg.precio_acordado && (
+              {neg.precio_acordado && precioForm && cantidadForm && parseFloat(precioForm) === neg.precio_acordado && parseFloat(cantidadForm) === neg.cantidad_solicitada && (
                 <div className="alert alert-success" style={{ marginTop: 'var(--sp-2)' }}>
-                  Este precio coincide con la oferta actual. Se cerrará el acuerdo al confirmar.
+                  Esta oferta coincide con la oferta actual. Se cerrará el acuerdo al confirmar.
                 </div>
               )}
             </div>
@@ -504,7 +546,7 @@ export default function DetalleNegociacion() {
               <button className="btn btn-ghost" onClick={cerrarModalOferta} disabled={sending}>Cancelar</button>
               <button className="btn btn-primary"
                 onClick={enviarOferta}
-                disabled={!precioForm || parseFloat(precioForm) <= 0 || sending}>
+                disabled={!precioForm || parseFloat(precioForm) <= 0 || !cantidadForm || parseFloat(cantidadForm) <= 0 || sending}>
                 {sending ? 'Enviando...' : 'Enviar oferta'}
               </button>
             </div>
