@@ -57,11 +57,10 @@ async function main() {
   ];
 
   for (const p of productos) {
-    await prisma.producto.upsert({
-      where:  { id: (await prisma.producto.findFirst({ where:{ nombre:p.nombre } }))?.id ?? 0 },
-      update: {},
-      create: p,
-    });
+    const existente = await prisma.producto.findFirst({ where:{ nombre:{ equals: p.nombre, mode:'insensitive' } } });
+    if (!existente) {
+      await prisma.producto.create({ data: p });
+    }
   }
 
   console.log('Seed completado.');

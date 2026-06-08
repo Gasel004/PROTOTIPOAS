@@ -3,12 +3,12 @@
 // ═══════════════════════════════════════════════════
 const router  = require('express').Router();
 const ctrl    = require('../controllers/auth.controller');
-const { verificarToken } = require('../middleware/auth');
+const { verificarToken, verificarUsuarioActivo } = require('../middleware/auth');
 
 router.post('/register', ctrl.register);
 router.post('/login',    ctrl.login);
-router.get('/me',        verificarToken, ctrl.me);
-router.put('/password',  verificarToken, ctrl.cambiarPassword);
+router.get('/me',        verificarToken, verificarUsuarioActivo, ctrl.me);
+router.put('/password',  verificarToken, verificarUsuarioActivo, ctrl.cambiarPassword);
 
 module.exports = router;
 

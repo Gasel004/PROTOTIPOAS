@@ -17,7 +17,16 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use((_req, res, next) => { res.setTimeout(30000, () => { res.status(503).json({ success:false, message:'Tiempo de espera agotado' }); }); next(); });
+app.use((_req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '0',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+  });
+  res.setTimeout(30000, () => { res.status(503).json({ success:false, message:'Tiempo de espera agotado' }); });
+  next();
+});
 // Servir archivos estáticos del directorio uploads
 app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 
@@ -44,7 +53,11 @@ app.use((_req, res) => res.status(404).json({ success:false, message:'Ruta no en
 // ── Error handler global ──────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error(err);
-  res.status(err.status ?? 500).json({ success:false, message: err.message ?? 'Error interno del servidor' });
+  const isProd = process.env.NODE_ENV === 'production';
+  res.status(err.status ?? 500).json({
+    success: false,
+    message: isProd ? 'Error interno del servidor' : (err.message ?? 'Error interno del servidor'),
+  });
 });
 
 app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}/api/v1`));

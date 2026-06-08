@@ -77,7 +77,6 @@ export default function Pagos() {
   // modal (evita el bucle al volver a la URL con el mismo negociacion_id).
   useEffect(() => {
     if (loading || !negociacionIdFromUrl) return;
-    if (modalNew) return;
     const idNum = Number(negociacionIdFromUrl);
     const yaTienePago = pagos.some(p => Number(p.negociacion_id) === idNum);
     if (yaTienePago) return;
@@ -86,15 +85,23 @@ export default function Pagos() {
     const total = found?.precio_acordado != null
       ? Number(found.precio_acordado) * Number(found.cantidad_solicitada ?? 0)
       : '';
-    setForm(f => ({
-      ...f,
-      negociacion_id: idStr,
-      monto: total !== '' ? String(total.toFixed(2)) : f.monto,
-    }));
-    setFormErrors({});
-    setSaveError('');
-    setModalNew(true);
-  }, [negociacionIdFromUrl, loading, misNegociaciones, modalNew, pagos]);
+
+    if (!modalNew) {
+      setForm(f => ({
+        ...f,
+        negociacion_id: idStr,
+        monto: total !== '' ? String(total.toFixed(2)) : f.monto,
+      }));
+      setFormErrors({});
+      setSaveError('');
+      setModalNew(true);
+    } else if (found && total !== '') {
+      setForm(f => ({
+        ...f,
+        monto: String(total.toFixed(2)),
+      }));
+    }
+  }, [negociacionIdFromUrl, loading, misNegociaciones, pagos]);
 
   const totales = useMemo(() => ({
     completado: pagos.filter(p => p.estado === 'completado').reduce((s, p) => s + p.monto, 0),
@@ -121,19 +128,21 @@ export default function Pagos() {
     setSaving(true);
     try {
       const res = await api.post('/pagos', { ...form, negociacion_id: Number(form.negociacion_id), monto: Number(form.monto) });
-      setPagos(prev => [res.data?.data ?? { ...form, id: Date.now(), estado: 'pendiente' }, ...prev]);
+      const nuevo = res.data?.data ? normalizePago(res.data.data, user) : null;
+      if (nuevo) setPagos(prev => [nuevo, ...prev]);
       setModalNew(false);
     } catch (err) {
       setSaveError(err.response?.data?.message ?? 'No se pudo registrar el pago');
     } finally { setSaving(false); }
   }
 
-  async function actualizarEstado(id, estado) {
+  async function actualizarEstado(id, estado, redirigirA) {
     const previo = pagos.find(p => p.id === id)?.estado;
     if (!previo) return;
     setPagos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
     try {
       await api.put(`/pagos/${id}`, { estado });
+      if (redirigirA) navigate(redirigirA);
     } catch (err) {
       setPagos(prev => prev.map(p => p.id === id ? { ...p, estado: previo } : p));
       setError(err.response?.data?.message ?? 'No se pudo actualizar el estado del pago');
@@ -211,13 +220,21 @@ export default function Pagos() {
                         </span>
                       </td>
                       <td>
-                        {p.estado === 'pendiente' && (
+                        {p.estado === 'pendiente' && user?.rol === 'comprador' && (
                           <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--verde-700)', display: 'flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => actualizarEstado(p.id, 'completado')}><CheckCircle size={13} /> Completar</button>
+                              onClick={() => actualizarEstado(p.id, 'completado')}>
+                              <CheckCircle size={13} /> Completar
+                            </button>
                             <button className="btn btn-ghost btn-sm" style={{ color: 'var(--rojo)', display: 'flex', alignItems: 'center', gap: 4 }}
                               onClick={() => actualizarEstado(p.id, 'fallido')}><XCircle size={13} /> Fallido</button>
                           </div>
+                        )}
+                        {p.estado === 'completado' && user?.rol === 'productor' && (
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--verde-700)', display: 'flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => navigate('/entregas')}>
+                            <CheckCircle size={13} /> Recibido
+                          </button>
                         )}
                         {p.estado === 'completado' && (
                           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--azul)', display: 'flex', alignItems: 'center', gap: 4 }}
@@ -281,7 +298,8 @@ export default function Pagos() {
                     <div className="input-group">
                       <span className="input-prefix">Q</span>
                       <input className="form-input" type="number" min="0.01" step="0.01" placeholder="0.00"
-                        value={form.monto} onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
+                        value={form.monto} readOnly
+                        style={{ background: 'var(--gris-100)', cursor: 'not-allowed' }}
                         aria-invalid={formErrors.monto ? 'true' : 'false'} />
                     </div>
                     {formErrors.monto && <p className="form-error">{formErrors.monto}</p>}

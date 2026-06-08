@@ -5,7 +5,7 @@ import api from '../api/client';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from '../components/Pagination';
 import { ListSkeleton } from '../components/skeletons';
-import { Handshake, Store, MessageCircle, Clock, CheckCircle, XCircle, ChevronRight, User } from 'lucide-react';
+import { Handshake, Store, MessageCircle, Clock, CheckCircle, XCircle, ChevronRight, User, Truck } from 'lucide-react';
 
 const FILTROS = [
   { key: 'Todos',      label: 'Todas' },
@@ -13,11 +13,13 @@ const FILTROS = [
   { key: 'completada', label: 'Completadas' },
   { key: 'rechazada',  label: 'Rechazadas' },
 ];
-const ESTADOS_ACTIVOS = ['pendiente', 'en_proceso', 'aceptada'];
+const ESTADOS_ACTIVOS = ['pendiente', 'en_proceso', 'acuerdo_pendiente', 'aceptada', 'en_transito'];
 const ESTADO_CONFIG = {
   pendiente:  { badge:'badge-oro',   label:'Pendiente',  icon:<Clock size={14}/> },
   en_proceso: { badge:'badge-azul',  label:'En proceso', icon:<Handshake size={14}/> },
+  acuerdo_pendiente: { badge:'badge-oro', label:'Acuerdo pendiente', icon:<Clock size={14}/> },
   aceptada:   { badge:'badge-verde', label:'Aceptada',   icon:<CheckCircle size={14}/> },
+  en_transito:{ badge:'badge-azul',  label:'En tránsito',icon:<Truck size={14}/> },
   rechazada:  { badge:'badge-rojo',  label:'Rechazada',  icon:<XCircle size={14}/> },
   completada: { badge:'badge-verde', label:'Completada', icon:<CheckCircle size={14}/> },
   cancelada:  { badge:'badge-gris',  label:'Cancelada',  icon:<XCircle size={14}/> },

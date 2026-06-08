@@ -51,6 +51,10 @@ export default function Entregas() {
   const [obs, setObs] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [markingId, setMarkingId] = useState(null);
+  const [modalEnviar, setModalEnviar] = useState(null);
+  const cerrarModalEnviar = () => { if (!confirming) setModalEnviar(null); };
+  const modalEnviarRef = useModalA11y(!!modalEnviar, cerrarModalEnviar);
+  const [obsEnviar, setObsEnviar] = useState('');
   const [modalRating, setModalRating] = useState(null);
   const [ratingScore, setRatingScore] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
@@ -77,19 +81,19 @@ export default function Entregas() {
     setConfError('');
     try {
       await api.post(`/entregas/${entregaId}/confirmar`, { observaciones: obs });
-      const updatedEntrega = entregas.find(e => e.id === entregaId);
+      const target = entregas.find(e => e.id === entregaId);
+      const updProd = isProductor ? true : (target?.confirmacion_productor ?? false);
+      const updComp = !isProductor ? true : (target?.confirmacion_comprador ?? false);
+      const nuevoEstado = updProd && updComp ? 'entregado' : (target?.estado ?? 'pendiente');
       setEntregas(prev => prev.map(e => {
         if (e.id !== entregaId) return e;
-        const updProd = isProductor ? true : e.confirmacion_productor;
-        const updComp = !isProductor ? true : e.confirmacion_comprador;
-        return { ...e, confirmacion_productor: updProd, confirmacion_comprador: updComp,
-          estado: updProd && updComp ? 'entregado' : e.estado };
+        return { ...e, confirmacion_productor: updProd, confirmacion_comprador: updComp, estado: nuevoEstado };
       }));
-      if (updatedEntrega) {
+      if (target && nuevoEstado === 'entregado') {
         setModalRating({
-          negociacion_id: updatedEntrega.negociacion_id,
-          titulo: updatedEntrega.titulo,
-          contraparte: updatedEntrega.contraparte,
+          negociacion_id: target.negociacion_id,
+          titulo: target.titulo,
+          contraparte: target.contraparte,
         });
       }
       setModalConf(null); setObs('');
@@ -118,12 +122,14 @@ export default function Entregas() {
     } finally { setRatingSaving(false); }
   }
 
-  async function marcarEnviado(entregaId) {
+  async function marcarEnviado(entregaId, observaciones) {
     setMarkingId(entregaId);
     setConfError('');
     try {
-      const res = await api.put(`/entregas/${entregaId}`, { estado: 'en_transito' });
-      setEntregas(prev => prev.map(e => e.id === entregaId ? { ...e, estado: res.data?.data?.estado ?? 'en_transito' } : e));
+      const payload = { estado: 'en_transito' };
+      if (observaciones) payload.notas = observaciones;
+      const res = await api.put(`/entregas/${entregaId}`, payload);
+      setEntregas(prev => prev.map(e => e.id === entregaId ? { ...e, estado: res.data?.data?.estado ?? 'en_transito', confirmacion_productor: true } : e));
     } catch (err) {
       setConfError(err.response?.data?.message ?? 'No se pudo marcar como enviado');
     } finally { setMarkingId(null); }
@@ -204,19 +210,25 @@ export default function Entregas() {
                     {e.estado !== 'entregado' && (
                       <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
                         {isProductor && e.estado === 'pendiente' && (
-                          <button className="btn btn-oro btn-sm" onClick={() => marcarEnviado(e.id)}
+                          <button className="btn btn-oro btn-sm" onClick={() => { setModalEnviar(e); setObsEnviar(''); }}
                             disabled={markingId === e.id}
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <Truck size={14} /> {markingId === e.id ? 'Marcando...' : 'Marcar como enviado'}
                           </button>
                         )}
-                        {!yoConfirm && e.estado !== 'pendiente' && (
+                        {!yoConfirm && !isProductor && e.estado !== 'pendiente' && (
                           <button className="btn btn-primary btn-sm" onClick={() => setModalConf(e)}
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <CheckCircle size={14} /> Confirmar entrega
                           </button>
                         )}
-                        {yoConfirm && !elConfirm && e.estado !== 'pendiente' && (
+                        {isProductor && e.estado === 'en_transito' && (
+                          <div className="alert alert-info" style={{ padding: 'var(--sp-2) var(--sp-4)', fontSize: '.875rem' }}>
+                            <Clock size={14} style={{ marginRight: 6 }} />
+                            Esperando confirmación de recibido por el comprador
+                          </div>
+                        )}
+                        {!isProductor && yoConfirm && !elConfirm && e.estado !== 'pendiente' && (
                           <div className="alert alert-info" style={{ padding: 'var(--sp-2) var(--sp-4)', fontSize: '.875rem' }}>
                             Esperando confirmación de la otra parte
                           </div>
@@ -314,6 +326,37 @@ export default function Entregas() {
               <button className="btn btn-primary" onClick={enviarCalificacion} disabled={ratingSaving || ratingScore < 1}
                 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Star size={15} /> {ratingSaving ? 'Enviando...' : 'Enviar calificación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal marcar como enviado */}
+      {modalEnviar && (
+        <div className="modal-overlay" onClick={cerrarModalEnviar}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={modalEnviarRef} style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Truck size={18} /> Marcar como enviado</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalEnviar} disabled={markingId}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ margin: '0 0 var(--sp-3)', color: 'var(--gris-700)' }}>
+                Marcarás el envío de <strong>{modalEnviar.titulo}</strong>, esta acción no podrá deshacerse.
+              </p>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Referencia o descripción de la entrega</label>
+                <textarea className="form-textarea" rows={3} value={obsEnviar}
+                  onChange={e => setObsEnviar(e.target.value)}
+                  placeholder="Número de guía, transportista, punto de entrega..." />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={cerrarModalEnviar} disabled={markingId}>Cancelar</button>
+              <button className="btn btn-oro" onClick={() => { marcarEnviado(modalEnviar.id, obsEnviar); setModalEnviar(null); setObsEnviar(''); }}
+                disabled={markingId}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Truck size={15} /> Realizar envío
               </button>
             </div>
           </div>

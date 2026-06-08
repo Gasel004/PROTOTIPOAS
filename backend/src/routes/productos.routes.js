@@ -1,6 +1,6 @@
 const r = require('express').Router();
 const prisma = require('../prisma');
-const { verificarToken, soloRoles } = require('../middleware/auth');
+const { verificarToken, verificarUsuarioActivo, soloRoles } = require('../middleware/auth');
 
 r.get('/', async (req, res, next) => {
   try {
@@ -22,7 +22,7 @@ r.get('/:id', async (req, res, next) => {
   } catch(e) { next(e); }
 });
 
-r.post('/', verificarToken, soloRoles('asociacion'), async (req, res, next) => {
+r.post('/', verificarToken, verificarUsuarioActivo, soloRoles('asociacion'), async (req, res, next) => {
   try {
     const { nombre, categoria, unidad_medida, descripcion, activo=true } = req.body;
     if (!nombre || !unidad_medida) return res.status(400).json({ success:false, message:'Nombre y unidad de medida son requeridos' });
@@ -33,7 +33,7 @@ r.post('/', verificarToken, soloRoles('asociacion'), async (req, res, next) => {
   } catch(e) { next(e); }
 });
 
-r.put('/:id', verificarToken, soloRoles('asociacion'), async (req, res, next) => {
+r.put('/:id', verificarToken, verificarUsuarioActivo, soloRoles('asociacion'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const actual = await prisma.producto.findUnique({ where:{ id } });

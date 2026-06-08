@@ -46,6 +46,7 @@ async function listar(req, res, next) {
     if (req.user.rol === 'productor') {
       const productor = await prisma.productor.findUnique({ where:{ usuario_id:req.user.id } });
       where.negociacion = { productor_id:productor?.id ?? 0 };
+      if (!estado) where.estado = { not: 'pendiente' };
     } else if (req.user.rol === 'comprador') {
       const comprador = await prisma.comprador.findUnique({ where:{ usuario_id:req.user.id } });
       where.negociacion = { comprador_id:comprador?.id ?? 0 };
@@ -91,6 +92,7 @@ async function crear(req, res, next) {
     const { negociacion, participa } = await obtenerNegociacionParticipante(Number(negociacion_id), req.user.id);
     if (!negociacion) return res.status(404).json({ success:false, message:'Negociación no encontrada' });
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para registrar pagos en esta negociación' });
+    if (negociacion.estado !== 'en_transito') return res.status(400).json({ success:false, message:'No se puede registrar un pago para una negociación que aún no está en tránsito' });
     const data = await prisma.pago.create({ data:{negociacion_id:Number(negociacion_id),monto:Number(monto),metodo_pago:metodo,referencia,fecha_pago:fecha_pago?new Date(fecha_pago):null,notas,registrado_por:req.user.id} });
     res.status(201).json({ success:true, data });
   } catch(e) { next(e); }
@@ -106,13 +108,25 @@ async function actualizar(req, res, next) {
 
     // Para marcar un pago como 'completado', la negociación debe estar en tránsito
     if (estado === 'completado' && pago.negociacion?.estado !== 'en_transito') {
-      return res.status(400).json({ success:false, message:'La negociación aún no está en tránsito' });
+      return res.status(400).json({ success:false, message:'No se puede marcar como completado un pago de una negociación que aún no está en tránsito' });
     }
 
     const data = await prisma.pago.update({ where:{id:pago.id}, data:{estado,referencia,notas} });
 
-    // Tras completar el pago, evaluar si ya se puede cerrar la negociación
+    // Tras completar el pago, notificar y evaluar cierre
     if (estado === 'completado' && pago.negociacion_id) {
+      // Notificar al productor si el comprador marcó como completado
+      if (req.user.rol === 'comprador' && pago.negociacion?.productor?.usuario_id) {
+        await prisma.notificacion.create({
+          data: {
+            usuario_id: pago.negociacion.productor.usuario_id,
+            tipo: 'pago_realizado',
+            titulo: 'Pago realizado por el comprador',
+            mensaje: `${pago.negociacion.comprador?.razon_social || 'El comprador'} marcó como realizado el pago de Q${Number(pago.monto).toLocaleString()} para la negociación #${pago.negociacion_id}.`,
+            referencia_id: pago.negociacion_id,
+          },
+        }).catch(() => {});
+      }
       await evaluarCierre(pago.negociacion_id);
     }
     res.json({ success:true, data });

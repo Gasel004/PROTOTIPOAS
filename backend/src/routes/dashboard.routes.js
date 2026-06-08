@@ -1,7 +1,7 @@
 const r = require('express').Router();
 const c = require('../controllers/dashboard.controller');
-const { verificarToken } = require('../middleware/auth');
+const { verificarToken, verificarUsuarioActivo } = require('../middleware/auth');
 
-r.get('/stats', verificarToken, c.stats);
+r.get('/stats', verificarToken, verificarUsuarioActivo, c.stats);
 
 module.exports = r;

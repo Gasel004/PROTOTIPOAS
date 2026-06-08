@@ -32,7 +32,7 @@ async function listar(req, res, next) {
   try {
     const u = req.user;
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
     let negIds = [];
     if (u.rol === 'productor') {
       const p = await prisma.productor.findUnique({ where:{usuario_id:u.id} });
@@ -90,6 +90,14 @@ async function crear(req, res, next) {
     }
     const existe = await prisma.entrega.findUnique({ where:{negociacion_id:Number(negociacion_id)} });
     if (existe) return res.status(409).json({ success:false, message:'Ya existe una entrega para esta negociación' });
+    if (fecha_programada) {
+      const fecha = new Date(fecha_programada);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      if (fecha < hoy) {
+        return res.status(400).json({ success: false, message: 'La fecha de entrega no puede ser en el pasado' });
+      }
+    }
     const data = await prisma.entrega.create({ data:{negociacion_id:Number(negociacion_id),fecha_programada:fecha_programada?new Date(fecha_programada):null,lugar_entrega,notas} });
     res.status(201).json({ success:true, data });
   } catch(e) { next(e); }
@@ -99,10 +107,39 @@ async function actualizar(req, res, next) {
   try {
     const { fecha_programada, lugar_entrega, estado, notas } = req.body;
     if (estado && !ESTADOS_ENTREGA.includes(estado)) return res.status(400).json({ success:false, message:'Estado de entrega inválido' });
+    if (fecha_programada) {
+      const fecha = new Date(fecha_programada);
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      if (fecha < hoy) {
+        return res.status(400).json({ success: false, message: 'La fecha de entrega no puede ser en el pasado' });
+      }
+    }
     const { entrega, participa } = await obtenerEntregaParticipante(Number(req.params.id), req.user.id);
     if (!entrega) return res.status(404).json({ success:false, message:'No encontrada' });
     if (!participa) return res.status(403).json({ success:false, message:'Sin permiso para actualizar esta entrega' });
     const data = await prisma.entrega.update({ where:{id:entrega.id}, data:{fecha_programada:fecha_programada?new Date(fecha_programada):undefined,lugar_entrega,estado,notas} });
+
+    // Al marcar como enviado, el productor confirma automáticamente su parte
+    if (estado === 'en_transito') {
+      await prisma.confirmacionEntrega.upsert({
+        where: { entrega_id_usuario_id: { entrega_id: entrega.id, usuario_id: req.user.id } },
+        create: { entrega_id: entrega.id, usuario_id: req.user.id, rol_confirmador: 'productor', confirmado: true, fecha_confirmacion: new Date() },
+        update: { confirmado: true, fecha_confirmacion: new Date() },
+      });
+
+      // Notificar al comprador que el producto fue enviado
+      await prisma.notificacion.create({
+        data: {
+          usuario_id: entrega.negociacion.comprador.usuario_id,
+          tipo: 'entrega_enviada',
+          titulo: 'Producto enviado',
+          mensaje: `El productor ${entrega.negociacion.productor.usuario.nombre} marcó como enviado el pedido de la negociación #${entrega.negociacion_id}. Confirma la recepción cuando lo recibas.`,
+          referencia_id: entrega.negociacion_id,
+        },
+      }).catch(err => console.error('Error creando notificación entrega_enviada:', err));
+    }
+
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }
@@ -125,14 +162,29 @@ async function confirmar(req, res, next) {
       create:{ entrega_id:entregaId, usuario_id:req.user.id, rol_confirmador:rolConfirmador, confirmado:true, observaciones, fecha_confirmacion:new Date() },
       update:{ confirmado:true, rol_confirmador:rolConfirmador, observaciones, fecha_confirmacion:new Date() },
     });
-    // Verificar doble confirmación
+    // Verificar doble confirmación (productor ya confirmó al marcar enviado)
     const confs = await prisma.confirmacionEntrega.findMany({ where:{entrega_id:entregaId,confirmado:true} });
     const confirmoProductor = confs.some(c => c.rol_confirmador === 'productor');
     const confirmoComprador = confs.some(c => c.rol_confirmador === 'comprador');
     if (confirmoProductor && confirmoComprador) {
       await prisma.entrega.update({ where:{id:entregaId}, data:{estado:'entregado',fecha_realizada:new Date()} });
+
+      // Notificar al productor que el comprador recibió y puede calificar
+      const prodUserId = entrega.negociacion?.productor?.usuario_id;
+      const compName = entrega.negociacion?.comprador?.usuario?.nombre;
+      if (prodUserId && compName) {
+        await prisma.notificacion.create({
+          data: {
+            usuario_id: prodUserId,
+            tipo: 'calificar_comprador',
+            titulo: 'Pedido recibido por el comprador',
+            mensaje: `${compName} recibió el pedido de la negociación #${entrega.negociacion_id}. Deja una reseña en su perfil.`,
+            referencia_id: entrega.negociacion_id,
+          },
+        }).catch(err => console.error('Error creando notificación calificar_comprador:', err));
+      }
+
       // El cierre de la negociación lo decide el helper central
-      // (requiere también que el pago esté completado).
       await evaluarCierre(entrega.negociacion_id);
     }
     res.json({ success:true, message:'Confirmación registrada' });

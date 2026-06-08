@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Handshake } from 'lucide-react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { CheckCircle, XCircle, Handshake, Star, Phone } from 'lucide-react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -8,6 +8,7 @@ import { useModalA11y } from '../hooks/useModalA11y';
 const ESTADO_SIGUIENTES = {
   pendiente: [{ estado: 'en_transito', label: ' Aceptar y proponer precio', cls: 'btn-primary' }, { estado: 'rechazada', label: ' Rechazar', cls: 'btn-danger' }],
   en_proceso: [{ estado: 'en_transito', label: ' Confirmar mi parte del acuerdo', cls: 'btn-primary' }],
+  acuerdo_pendiente: [{ estado: 'en_transito', label: ' Confirmar mi parte del acuerdo', cls: 'btn-primary' }],
   en_transito: [],
   aceptada: [{ estado: 'en_transito', label: ' Confirmar acuerdo (legacy)', cls: 'btn-primary' }],
   rechazada: [],
@@ -16,10 +17,11 @@ const ESTADO_SIGUIENTES = {
 };
 
 const PASOS_NEGOCIACION = [
-  { estado: 'pendiente',   label: 'Solicitud' },
-  { estado: 'en_proceso',  label: 'En proceso' },
-  { estado: 'en_transito', label: 'En tránsito' },
-  { estado: 'completada',  label: 'Completada' },
+  { estado: 'pendiente',         label: 'Solicitud' },
+  { estado: 'en_proceso',        label: 'En proceso' },
+  { estado: 'acuerdo_pendiente', label: 'Acuerdo pendiente' },
+  { estado: 'en_transito',       label: 'En tránsito' },
+  { estado: 'completada',        label: 'Completada' },
 ];
 
 function normalizeNeg(n) {
@@ -55,6 +57,7 @@ function normalizeMsg(m) {
 export default function DetalleNegociacion() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const chatRef = useRef(null);
   const pollingRef = useRef(null);
@@ -70,6 +73,7 @@ export default function DetalleNegociacion() {
   const cerrarModalAcept = () => { if (!sending) setModalAcept(false); };
   const modalAceptRef = useModalA11y(modalAcept, cerrarModalAcept);
   const [precioForm, setPrecioForm] = useState('');
+  const [cantidadForm, setCantidadForm] = useState('');
   const [chatLive, setChatLive] = useState(false);
   const [estadoError, setEstadoError] = useState('');
   const [sendError, setSendError] = useState('');
@@ -98,6 +102,57 @@ export default function DetalleNegociacion() {
     setModalPropuesta(true);
   };
   const modalPropuestaRef = useModalA11y(modalPropuesta, cerrarModalPropuesta);
+
+  // ── Calificación ─────────────────────────────────────
+  const [modalCalificar, setModalCalificar] = useState(false);
+  const cerrarModalCalificar = () => { if (!sending) setModalCalificar(false); };
+  const modalCalificarRef = useModalA11y(modalCalificar, cerrarModalCalificar);
+  const [puntajeSeleccionado, setPuntajeSeleccionado] = useState(0);
+  const [comentarioCalif, setComentarioCalif] = useState('');
+  const [califError, setCalifError] = useState('');
+  const [califOk, setCalifOk] = useState('');
+  const [yaCalificado, setYaCalificado] = useState(false);
+
+  function abrirCalificar() {
+    setPuntajeSeleccionado(0);
+    setComentarioCalif('');
+    setCalifError('');
+    setCalifOk('');
+    setModalCalificar(true);
+  }
+
+  async function enviarCalificacion() {
+    if (puntajeSeleccionado < 1) { setCalifError('Selecciona una puntuación'); return; }
+    setSending(true);
+    setCalifError('');
+    try {
+      await api.post(`/negociaciones/${id}/calificar`, { puntaje: puntajeSeleccionado, comentario: comentarioCalif || undefined });
+      setCalifOk('Calificación enviada. Será revisada por la asociación.');
+      setYaCalificado(true);
+      setTimeout(() => setModalCalificar(false), 2000);
+    } catch (err) {
+      setCalifError(err.response?.data?.message ?? 'No se pudo enviar la calificación');
+    } finally { setSending(false); }
+  }
+
+  // Determinar si puede calificar según rol y estado de la entrega
+  const entrega = neg?.entrega;
+  const calificarDesdeNotif = searchParams.get('calificar') === '1';
+  const puedeCalificarProductor = user?.rol === 'productor' && entrega && entrega.estado === 'entregado' && !yaCalificado && calificarDesdeNotif;
+  const puedeCalificarComprador = user?.rol === 'comprador' && entrega && entrega.estado === 'entregado' && !yaCalificado;
+  const puedeCalificar = puedeCalificarProductor || puedeCalificarComprador;
+  const contraCalificar = user?.rol === 'productor' ? (neg?.comprador?.nombre ?? 'el comprador') : (neg?.productor?.nombre ?? 'el productor');
+
+  // Auto-abrir modal de calificación cuando viene de notificación
+  useEffect(() => {
+    if (calificarDesdeNotif && user?.rol === 'productor' && entrega?.estado === 'entregado' && !yaCalificado && !modalCalificar) {
+      setPuntajeSeleccionado(0);
+      setComentarioCalif('');
+      setCalifError('');
+      setCalifOk('');
+      setModalCalificar(true);
+    }
+  }, [calificarDesdeNotif, entrega?.estado, user?.rol]);
 
   const cargarMensajes = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -128,7 +183,8 @@ export default function DetalleNegociacion() {
           prev.estado !== normalized.estado ||
           prev.precio_acordado !== normalized.precio_acordado ||
           prev.confirmacion_productor !== normalized.confirmacion_productor ||
-          prev.confirmacion_comprador !== normalized.confirmacion_comprador;
+          prev.confirmacion_comprador !== normalized.confirmacion_comprador ||
+          prev.entrega?.estado !== normalized.entrega?.estado;
         return changed ? { ...prev, ...normalized } : prev;
       });
     } catch (err) {
@@ -214,8 +270,9 @@ export default function DetalleNegociacion() {
 
   async function cambiarEstado(nuevoEstado, extras = {}) {
     try {
-      await api.patch(`/negociaciones/${id}/estado`, { estado: nuevoEstado, ...extras });
-      setNeg(prev => ({ ...prev, estado: nuevoEstado, ...extras }));
+      const res = await api.patch(`/negociaciones/${id}/estado`, { estado: nuevoEstado, ...extras });
+      const updated = res.data?.data;
+      if (updated) setNeg(prev => ({ ...prev, ...normalizeNeg(updated) }));
       setModalAcept(false);
       setModalPropuesta(false);
       limpiarDescarte();
@@ -344,7 +401,7 @@ export default function DetalleNegociacion() {
               </div>
 
               {/* Doble confirmación del precio (visible en en_proceso y en_transito) */}
-              {(neg.estado === 'en_proceso' || neg.estado === 'en_transito') && (
+              {(neg.estado === 'en_proceso' || neg.estado === 'en_transito' || neg.estado === 'acuerdo_pendiente' || neg.estado === 'aceptada') && (
                 <div style={{ background: 'var(--gris-50)', borderRadius: 'var(--radius)', padding: 'var(--sp-4)', marginTop: 'var(--sp-4)', display: 'flex', gap: 'var(--sp-6)', flexWrap: 'wrap' }}>
                   <ConfirmBadge label="Productor" done={neg.confirmacion_productor} />
                   <ConfirmBadge label="Comprador" done={neg.confirmacion_comprador} />
@@ -435,13 +492,21 @@ export default function DetalleNegociacion() {
             <div className="card-header"><h4> Participantes</h4></div>
             <div className="card-body">
               {[
-                [' Productor', neg.productor?.nombre, neg.productor?.telefono],
-                ['‍ Comprador', neg.comprador?.nombre, neg.comprador?.telefono],
-              ].map(([rol, nombre, email]) => (
+                [' Productor', neg.productor?.nombre, neg.productor?.telefono, 'productor'],
+                ['‍ Comprador', neg.comprador?.nombre, neg.comprador?.telefono, 'comprador'],
+              ].map(([rol, nombre, telefono, rolParticipante]) => (
                 <div key={rol} style={{ marginBottom: 'var(--sp-4)' }}>
                   <div style={{ fontSize: '.8rem', color: 'var(--gris-500)', marginBottom: 4 }}>{rol}</div>
                   <div style={{ fontWeight: 600 }}>{nombre}</div>
-                  <div style={{ fontSize: '.8rem', color: 'var(--gris-500)' }}>{email}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-2)' }}>
+                    <span style={{ fontSize: '.8rem', color: 'var(--gris-500)' }}>{telefono}</span>
+                    {user?.rol !== rolParticipante && (
+                      <button className="btn btn-ghost btn-sm" disabled
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--verde-700)' }}>
+                        <Phone size={13} /> Llamar
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -461,6 +526,7 @@ export default function DetalleNegociacion() {
                         // el input con ese valor; el usuario puede aceptarlo
                         // tal cual o cambiarlo para renegociar.
                         setPrecioForm(neg.precio_acordado != null ? String(neg.precio_acordado) : '');
+                        setCantidadForm(String(neg.cantidad_solicitada));
                         setModoModal('inicial');
                         setModalAcept(true);
                       } else {
@@ -476,6 +542,24 @@ export default function DetalleNegociacion() {
                     Cancelar negociación
                   </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Calificar contraparte */}
+          {puedeCalificar && (
+            <div className="card" style={{ borderLeft: '3px solid var(--oro)' }}>
+              <div className="card-header"><h4> Calificar a {contraCalificar}</h4></div>
+              <div className="card-body">
+                <p style={{ fontSize: '.875rem', color: 'var(--gris-600)', margin: '0 0 var(--sp-3)' }}>
+                  {puedeCalificarComprador
+                    ? 'Ya confirmaste la recepción. Califica al productor.'
+                    : 'El comprador confirmó la entrega. Deja una reseña en su perfil.'}
+                </p>
+                <button className="btn btn-oro btn-full" onClick={abrirCalificar}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <Star size={16} fill="currentColor" /> Calificar
+                </button>
               </div>
             </div>
           )}
@@ -518,15 +602,31 @@ export default function DetalleNegociacion() {
         <div className="modal-overlay" onClick={cerrarModalAcept}>
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalAceptRef}>
             <div className="modal-header">
-              <h3>{modoModal === 'renegociar' ? ' Contraproponer precio' : ' Aceptar negociación'}</h3>
+              <h3>{modoModal === 'renegociar' ? ' Contraproponer' : ' Aceptar negociación'}</h3>
               <button className="btn btn-ghost btn-sm" onClick={cerrarModalAcept} disabled={sending}></button>
             </div>
             <div className="modal-body">
               {modoModal === 'renegociar' && neg.precio_acordado != null && (
                 <div className="alert" style={{ background: 'var(--gris-100)', marginBottom: 'var(--sp-4)', fontSize: '.875rem' }}>
-                  Precio actual propuesto: <strong>Q{Number(neg.precio_acordado).toLocaleString()}/{neg.unidad_medida}</strong>
+                  Propuesta actual:{' '}
+                  <strong>Q{Number(neg.precio_acordado).toLocaleString()}/{neg.unidad_medida}</strong>
+                  {' '}×{' '}
+                  <strong>{neg.cantidad_solicitada} {neg.unidad_medida}s</strong>
+                  {' '}= Total:{' '}
+                  <strong>Q{(Number(neg.precio_acordado) * neg.cantidad_solicitada).toLocaleString()}</strong>
                 </div>
               )}
+              <div className="form-group">
+                <label className="form-label">Cantidad ({neg.unidad_medida}s) <span style={{ color: 'var(--rojo)' }}>*</span></label>
+                <p className="form-hint" style={{ marginBottom: 'var(--sp-1)' }}>
+                  Disponible: <strong>{Number(neg.publicacion?.cantidad_disponible ?? 0) + neg.cantidad_solicitada} {neg.unidad_medida}s</strong>
+                </p>
+                <input className="form-input" type="number" min="1" step="0.01"
+                  max={Number(neg.publicacion?.cantidad_disponible ?? 0) + neg.cantidad_solicitada}
+                  value={cantidadForm}
+                  onChange={e => setCantidadForm(e.target.value)}
+                  placeholder={String(neg.cantidad_solicitada)} />
+              </div>
               <div className="form-group">
                 <label className="form-label">
                   {modoModal === 'renegociar' ? 'Tu contrapropuesta (Q/' : 'Precio acordado (Q/'}{neg.unidad_medida}) <span style={{ color: 'var(--rojo)' }}>*</span>
@@ -540,7 +640,8 @@ export default function DetalleNegociacion() {
               </div>
               {precioForm && (
                 <div className="alert alert-success">
-                  Total: <strong>Q{(Number(precioForm) * neg.cantidad_solicitada).toLocaleString()}</strong>
+                  {(cantidadForm || neg.cantidad_solicitada)} {neg.unidad_medida}s × Q{Number(precioForm).toLocaleString()} ={' '}
+                  <strong>Q{(Number(precioForm) * (cantidadForm ? Number(cantidadForm) : neg.cantidad_solicitada)).toLocaleString()}</strong>
                 </div>
               )}
             </div>
@@ -548,18 +649,19 @@ export default function DetalleNegociacion() {
               <button className="btn btn-ghost" onClick={cerrarModalAcept} disabled={sending}>Cancelar</button>
               <button className="btn btn-primary"
                 onClick={() => {
-                  // Si el precio del input coincide con el actual, lo tomamos
-                  // como aceptación (PATCH sin precio → el backend confirma
-                  // sin resetear al otro). Si difiere o no había precio
-                  // previo, lo enviamos y el backend lo trata como nueva
-                  // propuesta.
                   const precioNum = Number(precioForm);
                   const precioActual = neg.precio_acordado;
-                  const esAceptacion = !!precioActual && precioNum === precioActual;
+                  const cantNum = cantidadForm ? Number(cantidadForm) : undefined;
+                  const cantActual = neg.cantidad_solicitada;
+                  const mismoPrecio = !!precioActual && precioNum === precioActual;
+                  const mismaCantidad = cantNum === undefined || cantNum === cantActual;
+                  const esAceptacion = mismoPrecio && mismaCantidad;
                   if (esAceptacion) {
                     cambiarEstado('en_transito');
                   } else {
-                    cambiarEstado('en_transito', { precio_acordado: precioNum });
+                    const extras = { precio_acordado: precioNum };
+                    if (!mismaCantidad) extras.cantidad_solicitada = cantNum;
+                    cambiarEstado('en_transito', extras);
                   }
                 }}
                 disabled={!precioForm}>
@@ -619,6 +721,69 @@ export default function DetalleNegociacion() {
           </div>
         );
       })()}
+
+      {/* Modal calificar */}
+      {modalCalificar && (
+        <div className="modal-overlay" onClick={cerrarModalCalificar}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={modalCalificarRef} style={{ maxWidth: 420 }}>
+            <div className="modal-header">
+              <h3> Calificar a {contraCalificar}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalCalificar} disabled={sending}>✕</button>
+            </div>
+            {califOk ? (
+              <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--sp-10)' }}>
+                <div style={{ fontSize: '3rem', marginBottom: 'var(--sp-3)' }}><Star size={48} fill="var(--oro)" stroke="var(--oro)" /></div>
+                <h3>¡Calificación enviada!</h3>
+                <p className="text-muted">{califOk}</p>
+              </div>
+            ) : (
+              <div className="modal-body">
+                {califError && <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{califError}</div>}
+                <p style={{ textAlign: 'center', color: 'var(--gris-700)', marginBottom: 'var(--sp-4)' }}>
+                  ¿Cómo calificarías a <strong>{contraCalificar}</strong>?
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-5)' }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button key={n} type="button"
+                      onClick={() => setPuntajeSeleccionado(n)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--sp-1)',
+                        transition: 'transform .15s',
+                        transform: puntajeSeleccionado >= n ? 'scale(1.15)' : 'scale(1)',
+                      }}>
+                      <Star size={32} fill={puntajeSeleccionado >= n ? 'var(--oro)' : 'none'}
+                        stroke={puntajeSeleccionado >= n ? 'var(--oro)' : 'var(--gris-400)'} />
+                    </button>
+                  ))}
+                </div>
+                <p style={{ textAlign: 'center', fontSize: '.875rem', color: 'var(--gris-600)', marginBottom: 'var(--sp-4)' }}>
+                  {puntajeSeleccionado === 0 ? 'Selecciona una puntuación' :
+                   puntajeSeleccionado === 1 ? 'Muy mala experiencia' :
+                   puntajeSeleccionado === 2 ? 'Mala experiencia' :
+                   puntajeSeleccionado === 3 ? 'Experiencia regular' :
+                   puntajeSeleccionado === 4 ? 'Buena experiencia' :
+                   '¡Excelente experiencia!'}
+                </p>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Comentario (opcional)</label>
+                  <textarea className="form-textarea" rows={3} value={comentarioCalif}
+                    onChange={e => setComentarioCalif(e.target.value)}
+                    placeholder="Describe tu experiencia con esta contraparte..." />
+                </div>
+              </div>
+            )}
+            {!califOk && (
+              <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={cerrarModalCalificar} disabled={sending}>Cancelar</button>
+                <button className="btn btn-primary" onClick={enviarCalificacion} disabled={sending}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {sending ? 'Enviando...' : 'Enviar calificación'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
