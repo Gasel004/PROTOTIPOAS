@@ -7,13 +7,14 @@ const prisma = require('../prisma');
 // - 'completada' es auto-derivada por el helper evaluarCierre() y nunca
 //   puede ser target de un PATCH directo.
 const TRANSICIONES = {
-  pendiente:   ['en_proceso','en_transito','rechazada','cancelada'],
-  en_proceso:  ['en_transito','rechazada','cancelada'],
-  en_transito:['cancelada'],
-  aceptada:    ['en_transito','completada','cancelada'],
-  rechazada:   [],
-  completada:  [],
-  cancelada:   [],
+  pendiente:         ['en_proceso','en_transito','rechazada','cancelada'],
+  en_proceso:        ['en_transito','rechazada','cancelada'],
+  en_transito:       ['cancelada'],
+  acuerdo_pendiente: ['en_transito','rechazada','cancelada'],
+  aceptada:          ['en_transito','completada','cancelada'],
+  rechazada:         [],
+  completada:        [],
+  cancelada:         [],
 };
 
 async function asegurarEntregaParaNegociacion(negociacionId, data = {}) {
@@ -76,6 +77,7 @@ async function obtener(req, res, next) {
         publicacion:true,
         comprador:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } },
         productor:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } },
+        entrega:true,
       }
     });
     if (!neg) return res.status(404).json({ success:false, message:'No encontrada' });
@@ -89,29 +91,58 @@ async function crear(req, res, next) {
   try {
     const comprador = await prisma.comprador.findUnique({ where:{ usuario_id:req.user.id } });
     if (!comprador) return res.status(404).json({ success:false, message:'Perfil de comprador no encontrado' });
-    const { publicacion_id, cantidad_solicitada, condiciones } = req.body;
+    const { publicacion_id, cantidad_solicitada, precio_acordado, condiciones } = req.body;
     if (!publicacion_id || !cantidad_solicitada) return res.status(400).json({ success:false, message:'Faltan campos requeridos' });
-    const pub = await prisma.publicacion.findUnique({ where:{ id:Number(publicacion_id) } });
-    if (!pub || pub.eliminada || pub.estado !== 'activa') return res.status(400).json({ success:false, message:'Publicación no disponible' });
-    if (Number(cantidad_solicitada) > Number(pub.cantidad_disponible)) return res.status(400).json({ success:false, message:'La cantidad solicitada supera el disponible' });
-    const existe = await prisma.negociacion.findFirst({ where:{ publicacion_id:Number(publicacion_id), comprador_id:comprador.id, estado:{ in:['pendiente','en_proceso','en_transito','aceptada'] } } });
-    if (existe) return res.status(409).json({ success:false, message:'Ya existe una negociación activa para esta publicación' });
-    const data = await prisma.negociacion.create({ data:{ publicacion_id:Number(publicacion_id), comprador_id:comprador.id, productor_id:pub.productor_id, cantidad_solicitada:Number(cantidad_solicitada), condiciones } });
-    // Notificar al productor
-    const prod = await prisma.productor.findUnique({ where:{ id:pub.productor_id } });
-    await prisma.notificacion.create({ data:{ usuario_id:prod.usuario_id, tipo:'nueva_negociacion', titulo:'Nueva solicitud de negociación', mensaje:`Un comprador está interesado en: ${pub.titulo}`, referencia_id:data.id } });
+
+    const data = await prisma.$transaction(async (tx) => {
+      const pub = await tx.publicacion.findUnique({ where:{ id:Number(publicacion_id) } });
+      if (!pub || pub.eliminada || pub.estado !== 'activa') throw Object.assign(new Error('Publicación no disponible'), { status: 400 });
+      if (Number(cantidad_solicitada) > Number(pub.cantidad_disponible)) throw Object.assign(new Error(`La cantidad solicitada (${cantidad_solicitada}) supera el disponible (${pub.cantidad_disponible})`), { status: 400 });
+
+      const existe = await tx.negociacion.findFirst({ where:{ publicacion_id:Number(publicacion_id), comprador_id:comprador.id, estado:{ in:['pendiente','en_proceso','en_transito','aceptada','acuerdo_pendiente'] } } });
+      if (existe) throw Object.assign(new Error('Ya existe una negociación activa para esta publicación'), { status: 409 });
+
+      const tienePropuestaInicial = precio_acordado != null;
+      const neg = await tx.negociacion.create({ data:{
+        publicacion_id:Number(publicacion_id),
+        comprador_id:comprador.id,
+        productor_id:pub.productor_id,
+        cantidad_solicitada:Number(cantidad_solicitada),
+        precio_acordado: tienePropuestaInicial ? Number(precio_acordado) : undefined,
+        confirmacion_comprador: tienePropuestaInicial,
+        fecha_confirmacion_comprador: tienePropuestaInicial ? new Date() : undefined,
+        condiciones,
+      }});
+
+      await tx.publicacion.update({ where:{ id:pub.id }, data:{ cantidad_disponible: { decrement: Number(cantidad_solicitada) } } });
+
+      // Notificar al productor
+      const prod = await tx.productor.findUnique({ where:{ id:pub.productor_id } });
+      const tipoNotif = tienePropuestaInicial ? 'propuesta_precio' : 'nueva_negociacion';
+      const tituloNotif = tienePropuestaInicial ? 'Nueva negociación con propuesta de precio' : 'Nueva solicitud de negociación';
+      await tx.notificacion.create({ data:{ usuario_id:prod.usuario_id, tipo: tipoNotif, titulo: tituloNotif, mensaje:`Un comprador está interesado en: ${pub.titulo}`, referencia_id:neg.id } });
+
+      // Confirmación al comprador
+      await tx.notificacion.create({ data:{ usuario_id:comprador.usuario_id, tipo:'negociacion_creada', titulo:'Negociación iniciada', mensaje:`Has iniciado una negociación para: ${pub.titulo}. Espera la respuesta del productor.`, referencia_id:neg.id } });
+
+      return neg;
+    });
+
     res.status(201).json({ success:true, data });
-  } catch(e) { next(e); }
+  } catch(e) {
+    if (e.status) return res.status(e.status).json({ success:false, message:e.message });
+    next(e);
+  }
 }
 
 async function cambiarEstado(req, res, next) {
   try {
-    const neg = await prisma.negociacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ comprador:true, productor:true } });
+    const neg = await prisma.negociacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ comprador:true, productor:true, publicacion:true } });
     if (!neg) return res.status(404).json({ success:false, message:'No encontrada' });
     const esProductor = neg.productor.usuario_id === req.user.id;
     const esComprador = neg.comprador.usuario_id === req.user.id;
     if (!esProductor && !esComprador) return res.status(403).json({ success:false, message:'Sin permiso' });
-    const { estado, precio_acordado, condiciones, fecha_entrega_acordada } = req.body;
+    const { estado, precio_acordado, cantidad_solicitada, condiciones, fecha_entrega_acordada } = req.body;
 
     // 'completada' es auto-derivada; no se permite vía PATCH directo
     if (estado === 'completada') {
@@ -137,11 +168,36 @@ async function cambiarEstado(req, res, next) {
         fecha_entrega_acordada: fecha_entrega_acordada ? new Date(fecha_entrega_acordada) : undefined,
       };
       let huboRenegociacion = false;
+      let ajusteStock = 0;
 
-      if (precio_acordado != null) {
+      if (cantidad_solicitada !== undefined) {
+        const nuevaCantidad = Number(cantidad_solicitada);
+        if (!Number.isFinite(nuevaCantidad) || nuevaCantidad <= 0) {
+          return res.status(400).json({ success: false, message: 'La cantidad debe ser un número positivo' });
+        }
+        const disponible = Number(neg.publicacion?.cantidad_disponible ?? 0) + Number(neg.cantidad_solicitada);
+        if (nuevaCantidad > disponible) {
+          return res.status(400).json({ success: false, message: `Solo hay ${disponible} ${neg.publicacion?.unidad_medida ?? 'unidades'} disponibles` });
+        }
+        if (nuevaCantidad !== Number(neg.cantidad_solicitada)) {
+          huboRenegociacion = true;
+          ajusteStock = Number(neg.cantidad_solicitada) - nuevaCantidad;
+          updateData.cantidad_solicitada = nuevaCantidad;
+        }
+      }
+
+      if (precio_acordado !== undefined) {
         // Renegociación / propuesta inicial
+        // El comprador no puede re-proponer precio hasta que el productor haga una contrapropuesta
+        if (esComprador && neg.confirmacion_comprador && !neg.confirmacion_productor) {
+          return res.status(400).json({ success: false, message: 'Ya enviaste una propuesta de precio. Espera la respuesta del productor.' });
+        }
+        const precio = Number(precio_acordado);
+        if (!Number.isFinite(precio) || precio <= 0) {
+          return res.status(400).json({ success: false, message: 'El precio acordado debe ser un número positivo' });
+        }
         huboRenegociacion = true;
-        updateData.precio_acordado = Number(precio_acordado);
+        updateData.precio_acordado = precio;
         if (esProductor) {
           updateData.confirmacion_productor = true;
           updateData.confirmacion_comprador = false;
@@ -160,8 +216,8 @@ async function cambiarEstado(req, res, next) {
           updateData.confirmacion_comprador = true;
           updateData.fecha_confirmacion_comprador = neg.confirmacion_comprador ? neg.fecha_confirmacion_comprador : new Date();
         }
-        const yaProductor = esProductor ? true : neg.confirmacion_productor;
-        const yaComprador = esComprador ? true : neg.confirmacion_comprador;
+        const yaProductor = neg.confirmacion_productor || esProductor;
+        const yaComprador = neg.confirmacion_comprador || esComprador;
         if (yaProductor && yaComprador && neg.estado !== 'en_transito') {
           updateData.estado = 'en_transito';
         }
@@ -169,13 +225,23 @@ async function cambiarEstado(req, res, next) {
 
       const data = await prisma.negociacion.update({ where:{ id:neg.id }, data:updateData });
 
+      if (ajusteStock !== 0 && neg.publicacion) {
+        await prisma.publicacion.update({
+          where: { id: neg.publicacion.id },
+          data: { cantidad_disponible: { increment: ajusteStock } },
+        });
+      }
+
       if (updateData.estado === 'en_transito') {
         await asegurarEntregaParaNegociacion(neg.id, { fecha_entrega_acordada });
         await prisma.notificacion.create({ data:{ usuario_id:neg.comprador.usuario_id, tipo:'acuerdo_confirmado', titulo:'Acuerdo confirmado', mensaje:'El acuerdo fue confirmado por ambas partes. Pendiente de entrega y pago.', referencia_id:neg.id } });
         await prisma.notificacion.create({ data:{ usuario_id:neg.productor.usuario_id, tipo:'acuerdo_confirmado', titulo:'Acuerdo confirmado', mensaje:'El acuerdo fue confirmado por ambas partes. Pendiente de entrega y pago.', referencia_id:neg.id } });
       } else if (huboRenegociacion) {
-        const otherUserId = esProductor ? neg.comprador.usuario_id : neg.productor.usuario_id;
-        await prisma.notificacion.create({ data:{ usuario_id:otherUserId, tipo:'propuesta_precio', titulo:'Nueva propuesta de precio', mensaje:`Hay una nueva propuesta de precio para la negociación #${neg.id}.`, referencia_id:neg.id } }).catch(() => {});
+        // Notificar a ambas partes
+        const quien = esProductor ? neg.productor.usuario_id : neg.comprador.usuario_id;
+        const otro = esProductor ? neg.comprador.usuario_id : neg.productor.usuario_id;
+        await prisma.notificacion.create({ data:{ usuario_id:otro, tipo:'renegociacion', titulo:'Nueva propuesta', mensaje:`La contraparte realizó una nueva propuesta para la negociación #${neg.id}.`, referencia_id:neg.id } }).catch(err => console.error('Error notif renegociacion otro:', err));
+        await prisma.notificacion.create({ data:{ usuario_id:quien, tipo:'renegociacion', titulo:'Propuesta enviada', mensaje:`Enviaste una nueva propuesta para la negociación #${neg.id}.`, referencia_id:neg.id } }).catch(err => console.error('Error notif renegociacion quien:', err));
       }
       return res.json({ success:true, data });
     }
@@ -206,6 +272,8 @@ async function evaluarCierre(negociacionId) {
     include:{
       entrega:{ include:{ confirmaciones:true } },
       pagos:true,
+      comprador:{ include:{ usuario:{ select:{ id:true } } } },
+      productor:{ include:{ usuario:{ select:{ id:true } } } },
     },
   });
   if (!neg) return null;
@@ -238,7 +306,7 @@ async function calificarContraparte(req, res, next) {
       include: {
         comprador: { include: { usuario: { select: { id: true, nombre: true } } } },
         productor: { include: { usuario: { select: { id: true, nombre: true } } } },
-        entrega: true,
+        entrega: { include: { confirmaciones: true } },
       },
     });
     if (!neg) return res.status(404).json({ success: false, message: 'Negociación no encontrada' });
@@ -249,8 +317,20 @@ async function calificarContraparte(req, res, next) {
       return res.status(403).json({ success: false, message: 'No eres participante de esta negociación' });
     }
 
-    if (!neg.entrega || neg.entrega.estado !== 'entregado') {
-      return res.status(400).json({ success: false, message: 'La negociación aún no tiene entrega completada' });
+    if (!neg.entrega) {
+      return res.status(400).json({ success: false, message: 'La negociación aún no tiene una entrega registrada' });
+    }
+    if (esProductor && neg.entrega.estado !== 'en_transito' && neg.entrega.estado !== 'entregado') {
+      return res.status(400).json({ success: false, message: 'Debes marcar el envío antes de calificar al comprador' });
+    }
+    if (esComprador && neg.entrega.estado !== 'entregado') {
+      return res.status(400).json({ success: false, message: 'Debes confirmar la recepción antes de calificar al productor' });
+    }
+    if (esComprador) {
+      const productorEnvio = neg.entrega.confirmaciones?.some(c => c.rol_confirmador === 'productor' && c.confirmado);
+      if (!productorEnvio) {
+        return res.status(400).json({ success: false, message: 'El productor aún no ha marcado el envío. No puedes calificar todavía.' });
+      }
     }
 
     const puntaje = Number(req.body.puntaje);
@@ -281,6 +361,19 @@ async function calificarContraparte(req, res, next) {
         comentario: req.body.comentario || null,
       },
     });
+
+    // Cuando el productor califica al comprador, notificar al comprador
+    if (esProductor) {
+      await prisma.notificacion.create({
+        data: {
+          usuario_id: neg.comprador.usuario.id,
+          tipo: 'calificacion_recibida',
+          titulo: 'Nueva calificación recibida',
+          mensaje: `${neg.productor.usuario.nombre} te ha calificado en la negociación #${neg.id}.`,
+          referencia_id: neg.id,
+        },
+      }).catch(err => console.error('Error creando notificación calificacion_recibida:', err));
+    }
 
     res.status(201).json({
       success: true,

@@ -134,6 +134,7 @@ model Publicacion {
   @@index([eliminada])
   @@index([departamento])
   @@index([municipio])
+  @@index([precio_unitario])
   @@index([productor_id, estado])
   @@index([producto_id, estado])
   @@map("publicaciones")
@@ -181,6 +182,7 @@ enum EstadoNegociacion {
   pendiente
   en_proceso
   en_transito
+  acuerdo_pendiente
   aceptada
   rechazada
   completada

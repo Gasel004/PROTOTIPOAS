@@ -24,7 +24,7 @@ export default function DashboardProductor() {
       try {
         const [sRes, nRes] = await Promise.all([
           api.get('/dashboard/stats', { signal: ac.signal }).catch(() => null),
-          api.get('/publicaciones/mis-publicaciones?limit=3', { signal: ac.signal }).catch(() => null),
+          api.get('/publicaciones/mis-publicaciones', { signal: ac.signal }).catch(() => null),
         ]);
         if (!ac.signal.aborted) {
           setStats(sRes?.data ?? null);
@@ -78,7 +78,7 @@ export default function DashboardProductor() {
         <div className="stagger-item"><StatCard icon={<Package size={22}/>} label="Publicaciones activas" value={stats?.publicaciones ?? 0} color="verde" onClick={() => navigate('/mis-publicaciones')} /></div>
         <div className="stagger-item"><StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} /></div>
         <div className="stagger-item"><StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} /></div>
-        <div className="stagger-item"><StatCard icon={<TrendingUp size={22}/>} label="Ingresos este mes" value={`Q${(stats?.ingresos_mes??0).toLocaleString()}`} color="cielo" delta="+12%" up onClick={() => navigate('/pagos')} /></div>
+        <div className="stagger-item"><StatCard icon={<TrendingUp size={22}/>} label="Ingresos este mes" value={`Q${Number(stats?.ingresos_mes ?? 0).toLocaleString()}`} color="cielo" delta="+12%" up onClick={() => navigate('/pagos')} /></div>
       </div>
 
       <div className="dashboard-producer-workbench">

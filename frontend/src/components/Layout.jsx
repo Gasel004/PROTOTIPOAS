@@ -4,8 +4,9 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import {
   LayoutDashboard, Package, PlusCircle, Handshake, Truck, CreditCard,
-  Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch
+  Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch, CheckCircle, Clock
 } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 const NAV_ITEMS = {
   productor: [
@@ -53,6 +54,9 @@ export default function Layout() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [pagoNotifModal, setPagoNotifModal] = useState(null);
+  const cerrarPagoNotifModal = () => setPagoNotifModal(null);
+  const pagoNotifModalRef = useModalA11y(!!pagoNotifModal, cerrarPagoNotifModal);
 
   useEffect(() => {
     if (!user) return;
@@ -72,7 +76,7 @@ export default function Layout() {
     let interval = null;
     const start = () => {
       if (interval) return;
-      interval = setInterval(fetchNotifications, 20000);
+      interval = setInterval(fetchNotifications, 10000);
     };
     const stop = () => {
       if (interval) { clearInterval(interval); interval = null; }
@@ -210,10 +214,19 @@ export default function Layout() {
                     </div>
                   ) : (
                     notifications.map(n => (
-                      <div
+                       <div
                         key={n.id}
                         className={`notif-item ${!n.leida ? 'unread' : ''}`}
-                        onClick={() => handleMarkAsRead(n.id, n.leida)}
+                        onClick={() => {
+                          handleMarkAsRead(n.id, n.leida);
+                          if (n.tipo === 'pago_realizado' && n.referencia_id) {
+                            setPagoNotifModal({ notifId: n.id, negociacionId: n.referencia_id, mensaje: n.mensaje });
+                            setDropdownOpen(false);
+                          } else if (n.referencia_id) {
+                            navigate(`/negociaciones/${n.referencia_id}${n.tipo === 'calificar_comprador' ? '?calificar=1' : ''}`);
+                            setDropdownOpen(false);
+                          }
+                        }}
                         role="listitem"
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleMarkAsRead(n.id, n.leida); }}
@@ -253,6 +266,41 @@ export default function Layout() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Modal: pago realizado — Recibido o Pendiente */}
+      {pagoNotifModal && (
+        <div className="modal-overlay" onClick={cerrarPagoNotifModal}>
+          <div className="modal" onClick={e => e.stopPropagation()} ref={pagoNotifModalRef} style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <h3> Pago recibido</h3>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarPagoNotifModal}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="alert" style={{ background: 'var(--verde-50)', border: '1px solid var(--verde-200)', borderRadius: 'var(--radius)', padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+                <CheckCircle size={18} style={{ color: 'var(--verde-700)', marginBottom: 'var(--sp-2)' }} />
+                <p style={{ margin: 0, color: 'var(--gris-800)' }}>{pagoNotifModal.mensaje}</p>
+              </div>
+              <p style={{ fontSize: '.875rem', color: 'var(--gris-600)', margin: 0 }}>
+                ¿Confirmas que recibiste el pago?
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={cerrarPagoNotifModal}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Clock size={14} /> Pendiente
+              </button>
+              <button className="btn btn-primary"
+                onClick={() => {
+                  navigate(`/entregas`);
+                  setPagoNotifModal(null);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CheckCircle size={14} /> Recibido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -73,7 +73,8 @@ async function crear(req, res, next) {
         unidad_medida,
         municipio,
         departamento,
-        imagen_url
+        imagen_url,
+        fecha_cosecha: req.body.fecha_cosecha ? new Date(req.body.fecha_cosecha) : null,
       }
     });
     res.status(201).json({ success:true, data });
@@ -86,8 +87,8 @@ async function actualizar(req, res, next) {
     if (!pub || pub.eliminada) return res.status(404).json({ success:false, message:'No encontrada' });
     if (pub.productor.usuario_id !== req.user.id)
       return res.status(403).json({ success:false, message:'Sin permiso para editar esta publicación' });
-    const { titulo, descripcion, cantidad_disponible, precio_unitario, municipio, departamento, imagen_url } = req.body;
-    const data = await prisma.publicacion.update({ where:{ id:pub.id }, data:{ titulo, descripcion, cantidad_disponible:cantidad_disponible?Number(cantidad_disponible):undefined, precio_unitario:precio_unitario?Number(precio_unitario):undefined, municipio, departamento, imagen_url } });
+    const { titulo, descripcion, cantidad_disponible, precio_unitario, municipio, departamento, imagen_url, fecha_cosecha } = req.body;
+    const data = await prisma.publicacion.update({ where:{ id:pub.id }, data:{ titulo, descripcion, cantidad_disponible:cantidad_disponible?Number(cantidad_disponible):undefined, precio_unitario:precio_unitario?Number(precio_unitario):undefined, municipio, departamento, imagen_url, fecha_cosecha:fecha_cosecha?new Date(fecha_cosecha):null } });
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }

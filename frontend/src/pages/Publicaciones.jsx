@@ -18,6 +18,7 @@ function normalizePub(p) {
     cantidad_disponible: Number(p.cantidad_disponible ?? 0),
     productor: p.productor?.usuario?.nombre ?? p.productor ?? 'Productor',
     calificacion: Number(p.productor?.calificacion ?? p.calificacion ?? 0),
+    fecha_entrega_acordada: p.fecha_entrega_acordada ?? null,
   };
 }
 
@@ -34,6 +35,8 @@ export default function Publicaciones() {
   const [orden, setOrden] = useState('reciente');
 
   useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
     async function load() {
       try {
         const params = new URLSearchParams();
@@ -42,15 +45,17 @@ export default function Publicaciones() {
           params.set('categoria', categoria);
         }
         if (precioMax) params.set('precio_max', precioMax);
-        const res = await api.get(`/publicaciones?${params}`);
-        setPubs((res.data?.data ?? []).map(normalizePub));
-      } catch {
+        const res = await api.get(`/publicaciones?${params}`, { signal: ac.signal });
+        if (!cancelled) setPubs((res.data?.data ?? []).map(normalizePub));
+      } catch (err) {
+        if (ac.signal.aborted || cancelled) return;
         setPubs([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => { cancelled = true; ac.abort(); };
   }, [depto, categoria, precioMax]);
 
   const busquedaDebounced = useDebouncedValue(busqueda, 300);
@@ -132,21 +137,17 @@ export default function Publicaciones() {
 }
 
 function PubCard({ pub, onClick }) {
+  const [imgError, setImgError] = useState(false);
   return (
     <div className="pub-card scale-in" onClick={onClick}>
       <div className="pub-card-image-wrap">
-        {pub.imagen_url ? (
+        {pub.imagen_url && !imgError ? (
           <img
             src={getFullImageUrl(pub.imagen_url)}
             alt={pub.titulo}
             loading="lazy"
             className="pub-card-image"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = ''; // Clear source to trigger fallback styling
-              e.target.style.display = 'none';
-              e.target.parentElement.innerHTML = `<div class="pub-card-image-placeholder"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>`;
-            }}
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="pub-card-image-placeholder">

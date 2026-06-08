@@ -20,7 +20,7 @@ export default function CrearPublicacion() {
   const [form, setForm] = useState({
     producto:'', tipo_producto:'', descripcion:'',
     cantidad_disponible:'', precio_unitario:'', unidad_medida:'quintal',
-    municipio:'', departamento:'', imagen_url:null,
+    municipio:'', departamento:'', imagen_url:null, fecha_cosecha:'',
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -242,6 +242,11 @@ export default function CrearPublicacion() {
                 </select>
                 {errors.unidad_medida && <p className="form-error">{errors.unidad_medida}</p>}
               </div>
+            </div>
+            <div className="form-group" style={{ marginTop: 'var(--sp-4)' }}>
+              <label className="form-label">Fecha de cosecha</label>
+              <input className="form-input" type="date" name="fecha_cosecha" value={form.fecha_cosecha} onChange={handleChange}
+                max={new Date().toISOString().split('T')[0]} />
             </div>
 
             {form.precio_unitario && form.cantidad_disponible && (

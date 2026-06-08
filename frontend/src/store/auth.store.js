@@ -10,12 +10,6 @@ const useAuthStore = create(
       setAuth: (user, token) => set({ user, token }),
       setUser: (user)        => set({ user }),
       logout:  ()            => set({ user: null, token: null }),
-
-      isAuthenticated: () => {
-        // Helper para verificar desde fuera del store
-        const state = useAuthStore.getState();
-        return Boolean(state.token && state.user);
-      },
     }),
     {
       name:    'la-esperanza-auth',
@@ -24,4 +18,10 @@ const useAuthStore = create(
   )
 );
 
+const isAuthenticated = () => {
+  const state = useAuthStore.getState();
+  return Boolean(state.token && state.user);
+};
+
+export { isAuthenticated };
 export default useAuthStore;

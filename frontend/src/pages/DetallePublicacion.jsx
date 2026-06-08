@@ -42,7 +42,7 @@ export default function DetallePublicacion() {
   const [modalNeg, setModalNeg] = useState(false);
   const cerrarModalNeg = () => { if (!sending) setModalNeg(false); };
   const modalNegRef = useModalA11y(modalNeg, cerrarModalNeg);
-  const [negForm, setNegForm] = useState({ cantidad_solicitada: '', condiciones: '' });
+  const [negForm, setNegForm] = useState({ cantidad_solicitada: '', precio_propuesto: '', condiciones: '' });
   const [negFormError, setNegFormError] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
@@ -64,7 +64,7 @@ export default function DetallePublicacion() {
   }, [id]);
 
   function abrirModalNeg() {
-    setNegForm({ cantidad_solicitada: '', condiciones: '' });
+    setNegForm({ cantidad_solicitada: '', precio_propuesto: '', condiciones: '' });
     setNegFormError('');
     setSendError('');
     setNegOk(false);
@@ -81,6 +81,11 @@ export default function DetallePublicacion() {
       setNegFormError('La cantidad solicitada supera el disponible');
       return;
     }
+    const precioPropuesto = negForm.precio_propuesto ? Number(negForm.precio_propuesto) : undefined;
+    if (precioPropuesto !== undefined && (!Number.isFinite(precioPropuesto) || precioPropuesto <= 0)) {
+      setNegFormError('Ingresa un precio válido mayor a 0');
+      return;
+    }
     setNegFormError('');
     setSendError('');
     setSending(true);
@@ -88,6 +93,7 @@ export default function DetallePublicacion() {
       await api.post('/negociaciones', {
         publicacion_id: Number(id),
         cantidad_solicitada: Number(negForm.cantidad_solicitada),
+        precio_acordado: precioPropuesto,
         condiciones: negForm.condiciones,
       });
       setNegOk(true);
@@ -289,6 +295,20 @@ export default function DetallePublicacion() {
                     {negFormError && <p className="form-error">{negFormError}</p>}
                   </div>
                   <div className="form-group">
+                    <label className="form-label">Tu precio propuesto (Q/{pub.unidad_medida})</label>
+                    <div style={{ marginBottom: 'var(--sp-2)', fontSize: '.8125rem', color: 'var(--gris-500)' }}>
+                      Precio original de la publicación: <strong style={{ color: 'var(--verde-800)' }}>Q{pub.precio_unitario.toLocaleString()}/{pub.unidad_medida}</strong>
+                    </div>
+                    <div className="input-group">
+                      <span className="input-prefix">Q</span>
+                      <input className="form-input" type="number" min="0.01" step="0.01"
+                        value={negForm.precio_propuesto}
+                        onChange={e => setNegForm(f => ({ ...f, precio_propuesto: e.target.value }))}
+                        placeholder={`Precio original: ${pub.precio_unitario}`} />
+                    </div>
+                    <p className="form-hint">Deja vacío para negociar el precio después</p>
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">Condiciones iniciales</label>
                     <textarea className="form-textarea" rows={3}
                       value={negForm.condiciones}
@@ -297,7 +317,10 @@ export default function DetallePublicacion() {
                   </div>
                   {negForm.cantidad_solicitada && !negFormError && (
                     <div className="alert alert-success">
-                      Total estimado: <strong>Q{(pub.precio_unitario * Number(negForm.cantidad_solicitada)).toLocaleString()}</strong>
+                      {negForm.precio_propuesto
+                        ? <>Total con tu precio: <strong>Q{(Number(negForm.precio_propuesto) * Number(negForm.cantidad_solicitada)).toLocaleString()}</strong></>
+                        : <>Total al precio original: <strong>Q{(pub.precio_unitario * Number(negForm.cantidad_solicitada)).toLocaleString()}</strong></>
+                      }
                     </div>
                   )}
                 </div>
