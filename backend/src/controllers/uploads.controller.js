@@ -7,7 +7,17 @@ exports.uploadImagen = (req, res) => {
       });
     }
 
-    // Retornamos la ruta relativa para ser consumida e indexada por el frontend
+    const fs = require('fs');
+    const { validateMagicBytes } = require('../middleware/upload');
+    const buf = fs.readFileSync(req.file.path);
+    if (!validateMagicBytes(buf, req.file.mimetype)) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({
+        success: false,
+        message: 'El archivo no coincide con el formato declarado'
+      });
+    }
+
     const fileUrl = `/uploads/productos/${req.file.filename}`;
 
     res.json({

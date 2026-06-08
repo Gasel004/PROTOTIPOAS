@@ -223,7 +223,7 @@ r.get('/:id', async (req, res, next) => {
   try {
     const data = await prisma.asociacion.findUnique({
       where:{id:Number(req.params.id)},
-      include:{ productores:{ include:{ usuario:{ select:{ nombre:true, telefono:true, activo:true } } } } }
+      include:{ productores:{ include:{ usuario:{ select:{ nombre:true, activo:true } } } } }
     });
     if (!data) return res.status(404).json({ success:false, message:'No encontrada' });
     res.json({ success:true, data });
@@ -241,23 +241,29 @@ r.put('/:id', verificarToken, verificarUsuarioActivo, soloRoles('asociacion'), a
       },
     });
     if (!actual) return res.status(404).json({ success:false, message:'No encontrada' });
-    const data = await prisma.asociacion.update({
-      where:{ id:actual.id },
-      data:{
-        nombre:nombre ?? actual.nombre,
-        nit,
-        municipio,
-        departamento,
-        descripcion,
-        activa: activa === undefined ? undefined : Boolean(activa),
-      },
-    });
+
     const usuarioData = {};
     if (nombre) usuarioData.nombre = nombre;
     if (telefono) usuarioData.telefono = telefono;
-    if (Object.keys(usuarioData).length) {
-      await prisma.usuario.update({ where:{ id:data.usuario_id }, data:usuarioData });
-    }
+
+    const data = await prisma.$transaction(async (tx) => {
+      const updated = await tx.asociacion.update({
+        where:{ id:actual.id },
+        data:{
+          nombre:nombre ?? actual.nombre,
+          nit,
+          municipio,
+          departamento,
+          descripcion,
+          activa: activa === undefined ? undefined : Boolean(activa),
+        },
+      });
+      if (Object.keys(usuarioData).length) {
+        await tx.usuario.update({ where:{ id:updated.usuario_id }, data:usuarioData });
+      }
+      return updated;
+    });
+
     res.json({ success:true, data });
   } catch(e) { next(e); }
 });

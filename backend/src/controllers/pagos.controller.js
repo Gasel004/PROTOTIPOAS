@@ -45,11 +45,13 @@ async function listar(req, res, next) {
 
     if (req.user.rol === 'productor') {
       const productor = await prisma.productor.findUnique({ where:{ usuario_id:req.user.id } });
-      where.negociacion = { productor_id:productor?.id ?? 0 };
+      if (!productor) return res.status(404).json({ success:false, message:'Perfil de productor no encontrado' });
+      where.negociacion = { productor_id: productor.id };
       if (!estado) where.estado = { not: 'pendiente' };
     } else if (req.user.rol === 'comprador') {
       const comprador = await prisma.comprador.findUnique({ where:{ usuario_id:req.user.id } });
-      where.negociacion = { comprador_id:comprador?.id ?? 0 };
+      if (!comprador) return res.status(404).json({ success:false, message:'Perfil de comprador no encontrado' });
+      where.negociacion = { comprador_id: comprador.id };
     }
 
     const [data, total] = await Promise.all([

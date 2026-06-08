@@ -18,10 +18,4 @@ const useAuthStore = create(
   )
 );
 
-const isAuthenticated = () => {
-  const state = useAuthStore.getState();
-  return Boolean(state.token && state.user);
-};
-
-export { isAuthenticated };
 export default useAuthStore;

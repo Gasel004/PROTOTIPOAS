@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { usePagination } from '../hooks/usePagination';
@@ -47,6 +47,7 @@ export default function Pagos() {
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const autoOpenAttempted = useRef(false);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -76,7 +77,8 @@ export default function Pagos() {
   // Si ya existe un pago registrado para esa negociación, no reabrimos el
   // modal (evita el bucle al volver a la URL con el mismo negociacion_id).
   useEffect(() => {
-    if (loading || !negociacionIdFromUrl) return;
+    if (loading || !negociacionIdFromUrl || autoOpenAttempted.current) return;
+    autoOpenAttempted.current = true;
     const idNum = Number(negociacionIdFromUrl);
     const yaTienePago = pagos.some(p => Number(p.negociacion_id) === idNum);
     if (yaTienePago) return;

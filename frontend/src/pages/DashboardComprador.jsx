@@ -69,7 +69,7 @@ export default function DashboardComprador() {
           <small style={{ display:'flex', flexDirection:'column', gap:4, marginTop:6 }}>
             <span><Store size={12} style={{ marginRight:4 }}/> {stats?.publicaciones_vistas ?? 0} publicaciones</span>
             <span><Handshake size={12} style={{ marginRight:4 }}/> {stats?.negociaciones_activas ?? 0} negociaciones activas</span>
-            <span><DollarSign size={12} style={{ marginRight:4 }}/> Q{(stats?.gasto_mes ?? 0).toLocaleString()} este mes</span>
+            <span><DollarSign size={12} style={{ marginRight:4 }}/> Q{Number(stats?.gasto_mes ?? 0).toLocaleString()} este mes</span>
           </small>
         </button>
       </div>
@@ -78,7 +78,7 @@ export default function DashboardComprador() {
         <div className="stagger-item"><StatCard icon={<Store size={22}/>} label="Publicaciones disponibles" value={stats?.publicaciones_vistas ?? 0} color="cielo" onClick={() => navigate('/publicaciones')} /></div>
         <div className="stagger-item"><StatCard icon={<Handshake size={22}/>} label="Negociaciones activas" value={stats?.negociaciones_activas ?? 0} color="oro" onClick={() => navigate('/negociaciones')} /></div>
         <div className="stagger-item"><StatCard icon={<Truck size={22}/>} label="Entregas pendientes" value={stats?.entregas_pendientes ?? 0} color="tierra" onClick={() => navigate('/entregas')} /></div>
-        <div className="stagger-item"><StatCard icon={<DollarSign size={22}/>} label="Gasto este mes" value={`Q${(stats?.gasto_mes??0).toLocaleString()}`} color="verde" onClick={() => navigate('/pagos')} /></div>
+        <div className="stagger-item"><StatCard icon={<DollarSign size={22}/>} label="Gasto este mes" value={`Q${Number(stats?.gasto_mes??0).toLocaleString()}`} color="verde" onClick={() => navigate('/pagos')} /></div>
       </div>
 
       <div className="dashboard-buyer-market">

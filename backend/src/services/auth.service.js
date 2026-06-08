@@ -18,6 +18,9 @@ async function register({ nombre, telefono, password, rol }) {
   if (!nombre || !telefono || !password || !rol)
     throw Object.assign(new Error('Datos requeridos faltantes'), { status: 400 });
 
+  if (password.length < 8)
+    throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres'), { status: 400 });
+
   if (!validarTelefono(telefono))
     throw Object.assign(new Error('El teléfono debe tener el formato 4256-1234'), { status: 400 });
 

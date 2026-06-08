@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Handshake, Star, Phone } from 'lucide-react';
+import { CheckCircle, XCircle, Handshake, Star, Phone, ChevronUp, ChevronDown } from 'lucide-react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -61,6 +61,7 @@ export default function DetalleNegociacion() {
   const { user } = useAuthStore();
   const chatRef = useRef(null);
   const pollingRef = useRef(null);
+  const timerRef = useRef(null);
 
   const [neg, setNeg] = useState(null);
   const [msgs, setMsgs] = useState([]);
@@ -77,6 +78,7 @@ export default function DetalleNegociacion() {
   const [chatLive, setChatLive] = useState(false);
   const [estadoError, setEstadoError] = useState('');
   const [sendError, setSendError] = useState('');
+  const [chatMinimizado, setChatMinimizado] = useState(false);
   const [modalPropuesta, setModalPropuesta] = useState(false);
   const propuestaDescartadaKey = useRef(
     (() => { try { return sessionStorage.getItem(`la-esperanza-propuesta-descartada-${id}`) || null; } catch { return null; } })()
@@ -129,7 +131,7 @@ export default function DetalleNegociacion() {
       await api.post(`/negociaciones/${id}/calificar`, { puntaje: puntajeSeleccionado, comentario: comentarioCalif || undefined });
       setCalifOk('Calificación enviada. Será revisada por la asociación.');
       setYaCalificado(true);
-      setTimeout(() => setModalCalificar(false), 2000);
+      timerRef.current = setTimeout(() => setModalCalificar(false), 2000);
     } catch (err) {
       setCalifError(err.response?.data?.message ?? 'No se pudo enviar la calificación');
     } finally { setSending(false); }
@@ -209,7 +211,10 @@ export default function DetalleNegociacion() {
       setLoadError(err.response?.data?.message ?? 'No se pudo cargar la negociación');
       setNeg(null);
     }).finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
+    return () => {
+      ac.abort();
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
   }, [id]);
 
   useEffect(() => {
@@ -254,7 +259,7 @@ export default function DetalleNegociacion() {
     setSending(true);
     setSendError('');
     const textoEnviar = texto;
-    const optimista = { id: Date.now(), remitente_id: user?.id, remitente: user?.nombre, contenido: textoEnviar, created_at: 'Ahora', leido: false };
+    const optimista = { id: -Date.now(), remitente_id: user?.id, remitente: user?.nombre, contenido: textoEnviar, created_at: 'Ahora', leido: false };
     setMsgs(prev => [...prev, optimista]);
     setTexto('');
     try {
@@ -357,7 +362,7 @@ export default function DetalleNegociacion() {
         <div className="alert alert-error" style={{ marginBottom: 'var(--sp-4)' }}>{estadoError}</div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--sp-6)', alignItems: 'start' }}>
+      <div className="nego-detail-grid">
 
         {/* ── Chat principal ─────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
@@ -423,11 +428,24 @@ export default function DetalleNegociacion() {
             <div className="card-header">
               <div className="flex items-center justify-between gap-3">
                 <h4> Mensajes privados</h4>
-                <span className={`chat-live ${chatLive ? 'on' : 'off'}`}>
-                  {chatLive ? 'En vivo' : 'Reconectando'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                  <span className={`chat-live ${chatLive ? 'on' : 'off'}`}>
+                    {chatLive ? 'En vivo' : 'Reconectando'}
+                  </span>
+                  <button className="chat-toggle-btn" onClick={() => setChatMinimizado(!chatMinimizado)}
+                    title={chatMinimizado ? 'Expandir chat' : 'Minimizar chat'}
+                    aria-label={chatMinimizado ? 'Expandir chat' : 'Minimizar chat'}>
+                    {chatMinimizado ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
+            {chatMinimizado ? (
+              <div className="chat-minimized-placeholder" onClick={() => setChatMinimizado(false)}>
+                <ChevronUp size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                Chat minimizado — toca para expandir
+              </div>
+            ) : (
             <div className="chat-wrap" style={{ border: 'none', borderRadius: 0, height: 400 }}>
               <div className="chat-messages" ref={chatRef}>
                 {msgs.length === 0
@@ -462,11 +480,12 @@ export default function DetalleNegociacion() {
                 <div className="alert alert-error" style={{ marginTop: 'var(--sp-2)' }} role="alert">{sendError}</div>
               )}
             </div>
+            )}
           </div>
         </div>
 
         {/* ── Panel lateral ──────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
+        <div className="nego-panel">
 
           {/* Resumen */}
           <div className="card">
@@ -603,7 +622,7 @@ export default function DetalleNegociacion() {
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalAceptRef}>
             <div className="modal-header">
               <h3>{modoModal === 'renegociar' ? ' Contraproponer' : ' Aceptar negociación'}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={cerrarModalAcept} disabled={sending}></button>
+              <button className="btn btn-ghost btn-sm" onClick={cerrarModalAcept} disabled={sending}>✕</button>
             </div>
             <div className="modal-body">
               {modoModal === 'renegociar' && neg.precio_acordado != null && (

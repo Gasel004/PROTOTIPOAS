@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import api from '../api/client';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from '../components/Pagination';
 import { PlusCircle, Package, Pencil, CheckCircle, XCircle, Save, Search } from 'lucide-react';
 
 const EMPTY = { nombre:'', categoria:'', unidad_medida:'quintal', descripcion:'', activo:true };
@@ -75,6 +77,8 @@ export default function CatalogoProductos() {
     return productos.filter(p => !q || p.nombre.toLowerCase().includes(q) || (p.categoria ?? '').toLowerCase().includes(q));
   }, [productos, searchDebounced]);
 
+  const pag = usePagination(filtrados, 8);
+
   return (
     <div className="animate-fade-in-up dashboard-page dashboard-asociacion-page">
       <div className="page-header" style={{ marginBottom: 'var(--sp-5)' }}>
@@ -146,8 +150,9 @@ export default function CatalogoProductos() {
           {loading ? <div className="loader-wrap"><div className="spinner" /></div> : filtrados.length === 0 ? (
             <div className="empty-state"><Package size={42}/><h3>Sin productos</h3><p>Agrega el primer producto al catálogo.</p></div>
           ) : (
+            <>
             <div className="catalog-product-grid">
-              {filtrados.map(p => (
+              {pag.pageItems.map(p => (
                 <article className="catalog-product-card" key={p.id}>
                   <div className="catalog-product-icon"><Package size={20}/></div>
                   <div>
@@ -162,6 +167,9 @@ export default function CatalogoProductos() {
                 </article>
               ))}
             </div>
+            <Pagination page={pag.page} totalPages={pag.totalPages} total={pag.total}
+              onPrev={pag.prev} onNext={pag.next} onSetPage={pag.setPage} label="productos" />
+            </>
           )}
         </section>
       </div>

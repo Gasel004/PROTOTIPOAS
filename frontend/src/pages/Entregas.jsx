@@ -80,21 +80,18 @@ export default function Entregas() {
     setConfirming(true);
     setConfError('');
     try {
-      await api.post(`/entregas/${entregaId}/confirmar`, { observaciones: obs });
-      const target = entregas.find(e => e.id === entregaId);
-      const updProd = isProductor ? true : (target?.confirmacion_productor ?? false);
-      const updComp = !isProductor ? true : (target?.confirmacion_comprador ?? false);
-      const nuevoEstado = updProd && updComp ? 'entregado' : (target?.estado ?? 'pendiente');
-      setEntregas(prev => prev.map(e => {
-        if (e.id !== entregaId) return e;
-        return { ...e, confirmacion_productor: updProd, confirmacion_comprador: updComp, estado: nuevoEstado };
-      }));
-      if (target && nuevoEstado === 'entregado') {
-        setModalRating({
-          negociacion_id: target.negociacion_id,
-          titulo: target.titulo,
-          contraparte: target.contraparte,
-        });
+      const res = await api.post(`/entregas/${entregaId}/confirmar`, { observaciones: obs });
+      const data = res.data?.data;
+      if (data) {
+        const updated = normalizeEntrega(data, user);
+        setEntregas(prev => prev.map(e => e.id === entregaId ? updated : e));
+        if (updated.estado === 'entregado') {
+          setModalRating({
+            negociacion_id: updated.negociacion_id,
+            titulo: updated.titulo,
+            contraparte: updated.contraparte,
+          });
+        }
       }
       setModalConf(null); setObs('');
     } catch (err) {
