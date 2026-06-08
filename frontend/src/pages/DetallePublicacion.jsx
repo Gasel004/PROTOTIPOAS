@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
@@ -47,6 +47,7 @@ export default function DetallePublicacion() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [negOk, setNegOk] = useState(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -60,7 +61,7 @@ export default function DetallePublicacion() {
         setPub(null);
       })
       .finally(() => { if (!ac.signal.aborted) setLoading(false); });
-    return () => ac.abort();
+    return () => { ac.abort(); if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } };
   }, [id]);
 
   function abrirModalNeg() {
@@ -97,7 +98,7 @@ export default function DetallePublicacion() {
         condiciones: negForm.condiciones,
       });
       setNegOk(true);
-      setTimeout(() => { setModalNeg(false); navigate('/negociaciones'); }, 1800);
+      timerRef.current = setTimeout(() => { setModalNeg(false); navigate('/negociaciones'); }, 1800);
     } catch (err) {
       setSendError(err.response?.data?.message ?? 'No se pudo iniciar la negociación');
     } finally { setSending(false); }
@@ -113,7 +114,7 @@ export default function DetallePublicacion() {
     <div className="animate-fade-in-up">
       <div style={{ marginBottom: 'var(--sp-5)' }}>
         <button className="btn btn-ghost btn-sm"
-          onClick={() => isPublicRoute ? navigate('/catalogo-publico') : navigate(-1)}>
+          onClick={() => isPublicRoute ? navigate('/catalogo-publico') : (window.history.length > 1 ? navigate(-1) : navigate('/publicaciones'))}>
           Volver
         </button>
       </div>
@@ -270,7 +271,7 @@ export default function DetallePublicacion() {
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalNegRef}>
             <div className="modal-header">
               <h3> Iniciar negociación</h3>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}></button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={cerrarModalNeg} disabled={sending}>✕</button>
             </div>
             {negOk
               ? <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--sp-10)' }}>

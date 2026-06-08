@@ -132,7 +132,7 @@ export default function Negociaciones() {
                 <div key={neg.id} className={`card card-hover ${isProductor ? 'card-tint-verde' : 'card-tint-cielo'}`} style={{ cursor:'pointer' }}
                   onClick={() => navigate(`/negociaciones/${neg.id}`)}>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto auto', alignItems:'center',
-                    gap:'var(--sp-5)', padding:'var(--sp-5) var(--sp-6)' }}>
+                    gap:'var(--sp-5)', padding:'var(--sp-5) var(--sp-6)', flexWrap:'wrap' }}>
                     <div>
                       <div style={{ display:'flex', alignItems:'center', gap:'var(--sp-3)', marginBottom:'var(--sp-2)' }}>
                         {cfg.icon}

@@ -45,7 +45,7 @@ export default function MisPublicaciones() {
     try {
       await api.patch(`/publicaciones/${id}/estado`, { estado: nuevoEstado });
       setPubs(prev => prev.map(p => p.id === id ? { ...p, estado: nuevoEstado } : p));
-    } catch { alert('Error al cambiar estado'); }
+    } catch { setError('Error al cambiar estado'); }
   }
 
   async function eliminar(id) {
@@ -53,7 +53,7 @@ export default function MisPublicaciones() {
       await api.delete(`/publicaciones/${id}`);
       setPubs(prev => prev.filter(p => p.id !== id));
       setConfirm(null);
-    } catch { alert('Error al eliminar'); }
+    } catch { setError('Error al eliminar'); }
   }
 
   const estadoBadge = e => ({ activa: 'badge-verde', pausada: 'badge-oro', cerrada: 'badge-gris', vencida: 'badge-rojo' }[e] ?? 'badge-gris');

@@ -1,4 +1,5 @@
 const prisma = require('../prisma');
+const { Prisma } = require('@prisma/client');
 
 //state machine para estados de negociacion
 // - 'aceptada' se mantiene en el enum por compatibilidad con datos legacy,
@@ -223,14 +224,16 @@ async function cambiarEstado(req, res, next) {
         }
       }
 
-      const data = await prisma.negociacion.update({ where:{ id:neg.id }, data:updateData });
-
-      if (ajusteStock !== 0 && neg.publicacion) {
-        await prisma.publicacion.update({
-          where: { id: neg.publicacion.id },
-          data: { cantidad_disponible: { increment: ajusteStock } },
-        });
-      }
+      const data = await prisma.$transaction(async (tx) => {
+        const updated = await tx.negociacion.update({ where:{ id:neg.id }, data:updateData });
+        if (ajusteStock !== 0 && neg.publicacion) {
+          await tx.publicacion.update({
+            where: { id: neg.publicacion.id },
+            data: { cantidad_disponible: { increment: ajusteStock } },
+          });
+        }
+        return updated;
+      });
 
       if (updateData.estado === 'en_transito') {
         await asegurarEntregaParaNegociacion(neg.id, { fecha_entrega_acordada });
@@ -283,19 +286,22 @@ async function evaluarCierre(negociacionId) {
 
   const totalPagado = neg.pagos
     .filter(p => p.estado === 'completado')
-    .reduce((acc, p) => acc + Number(p.monto), 0);
-  const totalEsperado = Number(neg.precio_acordado) * Number(neg.cantidad_solicitada);
-  if (totalPagado + 0.0001 < totalEsperado) return neg;
+    .reduce((acc, p) => acc.plus(p.monto), new Prisma.Decimal(0));
+  const totalEsperado = new Prisma.Decimal(neg.precio_acordado).mul(neg.cantidad_solicitada);
+  if (totalPagado.lessThan(totalEsperado)) return neg;
 
-  const updated = await prisma.negociacion.update({
-    where:{ id:neg.id },
+  const result = await prisma.negociacion.updateMany({
+    where:{ id:neg.id, estado:'en_transito' },
     data:{ estado:'completada' },
   });
+
+  if (result.count === 0) return neg;
 
   // Notificar a ambas partes
   await prisma.notificacion.create({ data:{ usuario_id:neg.comprador?.usuario_id, tipo:'negociacion_completada', titulo:'Negociación completada', mensaje:'La negociación se completó: entrega confirmada y pago recibido.', referencia_id:neg.id } }).catch(() => {});
   await prisma.notificacion.create({ data:{ usuario_id:neg.productor?.usuario_id, tipo:'negociacion_completada', titulo:'Negociación completada', mensaje:'La negociación se completó: entrega confirmada y pago recibido.', referencia_id:neg.id } }).catch(() => {});
 
+  const updated = await prisma.negociacion.findUnique({ where:{ id:neg.id } });
   return updated;
 }
 

@@ -34,7 +34,7 @@ async function misPublicaciones(req, res, next) {
 
 async function obtener(req, res, next) {
   try {
-    const data = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true, telefono:true } } } } } });
+    const data = await prisma.publicacion.findUnique({ where:{ id:Number(req.params.id) }, include:{ producto:true, productor:{ include:{ usuario:{ select:{ nombre:true } } } } } });
     if (!data || data.eliminada) return res.status(404).json({ success:false, message:'Publicación no encontrada' });
     res.json({ success:true, data });
   } catch(e) { next(e); }

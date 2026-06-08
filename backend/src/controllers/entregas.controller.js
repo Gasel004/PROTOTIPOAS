@@ -129,15 +129,18 @@ async function actualizar(req, res, next) {
       });
 
       // Notificar al comprador que el producto fue enviado
-      await prisma.notificacion.create({
-        data: {
-          usuario_id: entrega.negociacion.comprador.usuario_id,
-          tipo: 'entrega_enviada',
-          titulo: 'Producto enviado',
-          mensaje: `El productor ${entrega.negociacion.productor.usuario.nombre} marcó como enviado el pedido de la negociación #${entrega.negociacion_id}. Confirma la recepción cuando lo recibas.`,
-          referencia_id: entrega.negociacion_id,
-        },
-      }).catch(err => console.error('Error creando notificación entrega_enviada:', err));
+      const compradorUserId = entrega.negociacion?.comprador?.usuario_id;
+      if (compradorUserId) {
+        await prisma.notificacion.create({
+          data: {
+            usuario_id: compradorUserId,
+            tipo: 'entrega_enviada',
+            titulo: 'Producto enviado',
+            mensaje: `El productor ${entrega.negociacion.productor.usuario.nombre} marcó como enviado el pedido de la negociación #${entrega.negociacion_id}. Confirma la recepción cuando lo recibas.`,
+            referencia_id: entrega.negociacion_id,
+          },
+        }).catch(err => console.error('Error creando notificación entrega_enviada:', err));
+      }
     }
 
     res.json({ success:true, data });

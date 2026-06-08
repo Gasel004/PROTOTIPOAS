@@ -23,6 +23,7 @@ async function enviar(req, res, next) {
       return res.status(403).json({ success:false, message:'Sin permiso' });
     const { contenido } = req.body;
     if (!contenido?.trim()) return res.status(400).json({ success:false, message:'El contenido no puede estar vacío' });
+    if (contenido.length > 5000) return res.status(400).json({ success:false, message:'El contenido no puede superar los 5000 caracteres' });
     const data = await prisma.mensaje.create({ data:{ negociacion_id:negId, remitente_id:req.user.id, contenido } });
     res.status(201).json({ success:true, data });
   } catch(e) { next(e); }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import { User, Lock, Save, Tractor, Briefcase, CheckCircle, Users } from 'lucide-react';
@@ -15,6 +15,11 @@ export default function Perfil() {
   const [savingPw, setSavingPw] = useState(false);
   const [msgOk, setMsgOk] = useState('');
   const [msgErr, setMsgErr] = useState('');
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -38,12 +43,13 @@ export default function Perfil() {
   }, []);
 
   function flash(ok, msg) {
+    if (timerRef.current) clearTimeout(timerRef.current);
     if (ok) {
       setMsgOk(msg);
-      setTimeout(() => setMsgOk(''), 3500);
+      timerRef.current = setTimeout(() => setMsgOk(''), 3500);
     } else {
       setMsgErr(msg);
-      setTimeout(() => setMsgErr(''), 4000);
+      timerRef.current = setTimeout(() => setMsgErr(''), 4000);
     }
   }
 
@@ -80,6 +86,12 @@ export default function Perfil() {
 
   const initials = user?.nombre ? user.nombre.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'U';
   const ROL_LABEL = { productor: 'Productor agrícola', comprador: 'Comprador', asociacion: 'Asociación' };
+
+  function formatTelefono(val) {
+    const digits = val.replace(/\D/g, '').slice(0, 8);
+    if (digits.length > 4) return digits.slice(0, 4) + '-' + digits.slice(4);
+    return digits;
+  }
 
   return (
     <div className="animate-fade-in-up" style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -128,7 +140,7 @@ export default function Perfil() {
                 <div className="form-group">
                   <label className="form-label">Teléfono</label>
                   <input className="form-input" value={form.telefono}
-                    onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} placeholder="4256-1234" />
+                    onChange={e => setForm(f => ({ ...f, telefono: formatTelefono(e.target.value) }))} placeholder="4256-1234" />
                 </div>
               </div>
             </div>

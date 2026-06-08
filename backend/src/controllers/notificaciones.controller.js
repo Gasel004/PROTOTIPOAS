@@ -2,11 +2,13 @@ const prisma = require('../prisma');
 
 async function listar(req, res, next) {
   try {
-    const { leida, tipo, page=1, limit=30 } = req.query;
+    const { leida, tipo } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
     const where = { usuario_id:req.user.id };
     if (leida !== undefined) where.leida = leida === 'true';
     if (tipo) where.tipo = tipo;
-    const data = await prisma.notificacion.findMany({ where, orderBy:{created_at:'desc'}, skip:(page-1)*limit, take:Number(limit) });
+    const data = await prisma.notificacion.findMany({ where, orderBy:{created_at:'desc'}, skip:(page-1)*limit, take:limit });
     const noLeidas = await prisma.notificacion.count({ where:{usuario_id:req.user.id,leida:false} });
     res.json({ success:true, data, noLeidas });
   } catch(e) { next(e); }

@@ -11,7 +11,7 @@ r.get('/', async (req, res, next) => {
     res.json({ success:true, data });
   } catch(e) { next(e); }
 });
-r.get('/:id', async (req, res, next) => {
+r.get('/:id', verificarToken, async (req, res, next) => {
   try {
     const data = await prisma.productor.findUnique({ where:{id:Number(req.params.id)}, include:{usuario:{select:{nombre:true,telefono:true}}} });
     if (!data) return res.status(404).json({ success:false, message:'No encontrado' });

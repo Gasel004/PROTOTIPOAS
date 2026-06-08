@@ -82,12 +82,12 @@ export default function Publicaciones() {
       </div>
 
       <div className="card" style={{ marginBottom: 'var(--sp-6)', padding: 'var(--sp-5)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 'var(--sp-4)', alignItems: 'end' }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 'var(--sp-4)', alignItems: 'end', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
             <label className="form-label" htmlFor="buscar-pub" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Search size={13} /> Buscar</label>
             <input id="buscar-pub" className="form-input" placeholder="Maíz, frijol, tomate..." value={busqueda} onChange={e => setBusqueda(e.target.value)} autoComplete="off" />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: 120 }}>
             <label className="form-label" htmlFor="filtro-depto" style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={13} /> Departamento</label>
             <select id="filtro-depto" className="form-select" value={depto} onChange={e => setDepto(e.target.value)}>
               {DEPARTAMENTOS.map(d => <option key={d}>{d}</option>)}
@@ -163,9 +163,9 @@ function PubCard({ pub, onClick }) {
             &nbsp;/{pub.unidad_medida}
           </span>
         </div>
-        <div className="pub-card-meta" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className="pub-card-meta" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
           <MapPin size={12} /> {pub.municipio}, {pub.departamento}
-          <br />
+          <span style={{ margin: '0 4px' }}>·</span>
           {pub.cantidad_disponible} {pub.unidad_medida}s disponibles
         </div>
       </div>

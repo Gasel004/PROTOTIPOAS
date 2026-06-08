@@ -11,8 +11,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -36,11 +34,14 @@ services:
       PORT:          ${PORT}
       NODE_ENV:      ${NODE_ENV}
       FRONTEND_URL:  ${FRONTEND_URL}
-    ports:
-      - "3000:3000"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # -- Frontend 
   frontend:
@@ -50,10 +51,12 @@ services:
     container_name: laesperanza-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8081:80"
 
 volumes:
   pgdata:
+  uploads_data:
 # --(#__#)

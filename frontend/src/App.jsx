@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense, useRef, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import useAuthStore from './store/auth.store';
 import { Leaf } from 'lucide-react';
 
@@ -155,11 +155,11 @@ export default function App() {
             <div style={{ fontSize:'4rem' }}>🌿</div>
             <h1 style={{ fontFamily:'var(--font-display)', color:'var(--verde-900)' }}>Página no encontrada</h1>
             <p style={{ color:'var(--gris-500)' }}>La ruta que buscas no existe</p>
-            <a href="/dashboard" style={{
+            <Link to="/dashboard" style={{
               background:'var(--verde-800)', color:'white',
               padding:'0.75rem 1.5rem', borderRadius:'10px',
               textDecoration:'none', fontWeight:600,
-            }}>Ir al inicio</a>
+            }}>Ir al inicio</Link>
           </div>
         } />
 

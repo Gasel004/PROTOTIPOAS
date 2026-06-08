@@ -31,6 +31,7 @@ export default function CrearPublicacion() {
   const [dragOver, setDragOver] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const timerRef = useRef(null);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -102,9 +103,12 @@ export default function CrearPublicacion() {
     setImageError(false);
   }, [form.imagen_url]);
 
-  // Cleanup blob URL on unmount
+  // Cleanup blob URL and timer on unmount
   useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
   }, [previewUrl]);
 
   useEffect(() => {
@@ -158,7 +162,7 @@ export default function CrearPublicacion() {
         await api.post('/publicaciones', payload);
       }
       setSuccess(true);
-      setTimeout(() => navigate('/mis-publicaciones'), 1500);
+      timerRef.current = setTimeout(() => navigate('/mis-publicaciones'), 1500);
     } catch (err) {
       setSaveError(err.response?.data?.message ?? 'No se pudo guardar la publicación');
     } finally { setSaving(false); }
@@ -173,7 +177,7 @@ export default function CrearPublicacion() {
             {esEdicion ? 'Modifica los datos de tu oferta' : 'Publica tu oferta y llega a compradores de todo el país'}
           </p>
         </div>
-        <button className="btn btn-ghost" onClick={() => navigate(-1)}> Volver</button>
+        <button className="btn btn-ghost" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/mis-publicaciones')}> Volver</button>
       </div>
 
       {success && (
@@ -219,8 +223,8 @@ export default function CrearPublicacion() {
         <div className="card" style={{ marginBottom:'var(--sp-5)' }}>
           <div className="card-header"><h4>2. Precio y disponibilidad</h4></div>
           <div className="card-body">
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'var(--sp-5)' }}>
-              <div className="form-group">
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'var(--sp-5)', flexWrap:'wrap' }}>
+              <div className="form-group" style={{ minWidth: 160 }}>
                 <label className="form-label">Precio unitario (Q) <span>*</span></label>
                 <div className="input-group">
                   <span className="input-prefix">Q</span>
@@ -351,7 +355,7 @@ export default function CrearPublicacion() {
 
 
         <div style={{ display:'flex', justifyContent:'flex-end', gap:'var(--sp-3)' }}>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancelar</button>
+          <button type="button" className="btn btn-ghost" onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/mis-publicaciones')}>Cancelar</button>
           <button type="submit" className="btn btn-primary" disabled={saving || uploading}>
             {saving ? ' Guardando...' : uploading ? ' Subiendo imagen...' : esEdicion ? ' Guardar cambios' : ' Publicar oferta'}
           </button>

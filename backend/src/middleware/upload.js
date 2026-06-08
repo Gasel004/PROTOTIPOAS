@@ -28,6 +28,19 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+const magicBytes = {
+  'image/jpeg': [0xFF, 0xD8, 0xFF],
+  'image/png':  [0x89, 0x50, 0x4E, 0x47],
+  'image/webp': [0x52, 0x49, 0x46, 0x46],
+};
+
+function validateMagicBytes(fileBuffer, mimetype) {
+  const expected = magicBytes[mimetype];
+  if (!expected) return false;
+  if (fileBuffer.length < expected.length) return false;
+  return expected.every((byte, i) => fileBuffer[i] === byte);
+}
+
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
@@ -37,3 +50,4 @@ const upload = multer({
 });
 
 module.exports = upload;
+module.exports.validateMagicBytes = validateMagicBytes;

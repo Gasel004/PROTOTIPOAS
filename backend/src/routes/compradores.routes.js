@@ -1,7 +1,7 @@
 const r = require('express').Router();
 const prisma = require('../prisma');
 const { verificarToken, verificarUsuarioActivo, soloRoles } = require('../middleware/auth');
-r.get('/:id', async (req, res, next) => {
+r.get('/:id', verificarToken, async (req, res, next) => {
   try {
     const data = await prisma.comprador.findUnique({ where:{id:Number(req.params.id)}, include:{usuario:{select:{nombre:true,telefono:true}}} });
     if (!data) return res.status(404).json({ success:false, message:'No encontrado' });
