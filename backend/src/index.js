@@ -42,6 +42,7 @@ app.use('/api/v1/entregas',      require('./routes/entregas.routes'));
 app.use('/api/v1/pagos',         require('./routes/pagos.routes'));
 app.use('/api/v1/notificaciones',require('./routes/notificaciones.routes'));
 app.use('/api/v1/dashboard',      require('./routes/dashboard.routes'));
+app.use('/api/v1/auditoria',      require('./routes/auditoria.routes'));
 app.use('/api/v1/uploads',        require('./routes/uploads.routes'));
 
 // ── Health check ──────────────────────────────────────────
