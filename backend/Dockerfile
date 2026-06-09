@@ -16,7 +16,7 @@ COPY src ./src
 
 RUN npx prisma generate
 RUN groupadd -g 1001 -r nodejs && useradd -r -u 1001 -g nodejs nodejs
-RUN chown -R nodejs:nodejs /app
+RUN mkdir -p /app/uploads/productos && chown -R nodejs:nodejs /app
 USER nodejs
 
 EXPOSE 3000
