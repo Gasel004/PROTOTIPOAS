@@ -187,6 +187,21 @@ async function confirmar(req, res, next) {
         }).catch(err => console.error('Error creando notificación calificar_comprador:', err));
       }
 
+      // Notificar al comprador que la entrega se completó y puede calificar
+      const compUserId = entrega.negociacion?.comprador?.usuario_id;
+      const prodName = entrega.negociacion?.productor?.usuario?.nombre;
+      if (compUserId && prodName) {
+        await prisma.notificacion.create({
+          data: {
+            usuario_id: compUserId,
+            tipo: 'calificar_productor',
+            titulo: 'Entrega completada',
+            mensaje: `La entrega de la negociación #${entrega.negociacion_id} fue completada. Deja una reseña a ${prodName}.`,
+            referencia_id: entrega.negociacion_id,
+          },
+        }).catch(err => console.error('Error creando notificación calificar_productor:', err));
+      }
+
       // El cierre de la negociación lo decide el helper central
       await evaluarCierre(entrega.negociacion_id);
     }

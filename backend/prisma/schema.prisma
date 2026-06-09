@@ -27,6 +27,7 @@ model Usuario {
   calificaciones_emitidas Calificacion[] @relation("CalificacionesEmitidas")
   calificaciones_recibidas Calificacion[] @relation("CalificacionesRecibidas")
   calificaciones_revisadas Calificacion[] @relation("CalificacionesRevisadas")
+  auditorias_registradas   Auditoria[]
 
   @@map("usuarios")
 }
@@ -61,17 +62,22 @@ model Productor {
 }
 
 model Comprador {
-  id            Int      @id @default(autoincrement())
-  usuario_id    Int      @unique
-  razon_social  String?  @db.VarChar(200)
-  nit           String?  @unique @db.VarChar(20)
-  municipio     String?  @db.VarChar(100)
-  departamento  String?  @db.VarChar(100)
-  tipo_comprador String? @db.VarChar(50)
-  calificacion  Decimal  @default(0.00) @db.Decimal(3,2)
-  created_at    DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  usuario_id           Int      @unique
+  asociacion_id        Int?
+  razon_social         String?  @db.VarChar(200)
+  nit                  String?  @unique @db.VarChar(20)
+  municipio            String?  @db.VarChar(100)
+  departamento         String?  @db.VarChar(100)
+  tipo_comprador       String?  @db.VarChar(50)
+  calificacion         Decimal  @default(0.00) @db.Decimal(3,2)
+  suspendido_hasta     DateTime?
+  suspension_motivo    String?
+  suspendido_definitivo Boolean @default(false)
+  created_at           DateTime @default(now())
 
   usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  asociacion    Asociacion? @relation(fields: [asociacion_id], references: [id])
   negociaciones Negociacion[] @relation("NegociacionComprador")
 
   @@map("compradores")
@@ -90,6 +96,7 @@ model Asociacion {
 
   usuario      Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
   productores  Productor[]
+  compradores  Comprador[]
 
   @@map("asociaciones")
 }
@@ -318,4 +325,22 @@ enum EstadoCalificacion {
   pendiente
   aprobada
   rechazada
+}
+
+model Auditoria {
+  id         Int      @id @default(autoincrement())
+  accion     String   @db.VarChar(50)
+  entidad    String   @db.VarChar(50)
+  entidad_id Int
+  usuario_id Int
+  detalle    String?  @db.VarChar(1000)
+  created_at DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@index([entidad, entidad_id])
+  @@index([usuario_id])
+  @@index([created_at])
+  @@index([accion])
+  @@map("auditoria")
 }

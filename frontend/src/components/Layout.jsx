@@ -4,7 +4,8 @@ import useAuthStore from '../store/auth.store';
 import api from '../api/client';
 import {
   LayoutDashboard, Package, PlusCircle, Handshake, Truck, CreditCard,
-  Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch, CheckCircle, Clock
+  Users, Bell, LogOut, Leaf, Store, Menu, X, PackageSearch, CheckCircle, Clock,
+  BarChart3, ScrollText
 } from 'lucide-react';
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -29,6 +30,8 @@ const NAV_ITEMS = {
     { label:'Productores',   to:'/miembros',      icon:<Users size={18}/> },
     { label:'Catálogo',      to:'/catalogo',      icon:<PackageSearch size={18}/> },
     { label:'Publicaciones', to:'/publicaciones', icon:<Store size={18}/> },
+    { label:'Estadísticas',  to:'/estadisticas',  icon:<BarChart3 size={18}/> },
+    { label:'Auditoría',     to:'/auditoria',     icon:<ScrollText size={18}/> },
   ],
 };
 
@@ -37,6 +40,7 @@ const PAGE_TITLES = {
   '/mis-publicaciones':'Mis Publicaciones','/publicaciones/nueva':'Nueva Publicación',
   '/negociaciones':'Negociaciones','/entregas':'Entregas',
   '/pagos':'Pagos','/perfil':'Mi Perfil','/miembros':'Productores','/catalogo':'Catálogo',
+  '/estadisticas':'Estadísticas','/auditoria':'Auditoría',
 };
 
 export default function Layout() {

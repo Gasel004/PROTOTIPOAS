@@ -69,10 +69,10 @@ export default function DashboardAsociacion() {
         <div className="dashboard-hero-copy">
           <p>{saludo},</p>
           <h1>{nombre}</h1>
-          <span>Una vista para coordinar productores, cuidar el catálogo común y monitorear el movimiento del marketplace sin invadir operaciones privadas.</span>
+          <span>Una vista para coordinar miembros, cuidar el catálogo común y monitorear el movimiento del marketplace sin invadir operaciones privadas.</span>
           <div>
             <button className="btn btn-oro" onClick={() => navigate('/miembros')}>
-              <UserPlus size={16} /> Gestionar productores
+              <UserPlus size={16} /> Gestionar miembros
             </button>
             <button className="btn dashboard-hero-secondary" onClick={() => navigate('/catalogo')}>
               <PackageSearch size={16} /> Gestionar catálogo
@@ -82,7 +82,7 @@ export default function DashboardAsociacion() {
         <div className="association-radar">
           <span>Radar de asociación</span>
           <strong>{safeStats.miembros ?? 0}</strong>
-          <small>productores vinculados</small>
+          <small>miembros registrados</small>
           <div className="radar-lines"><i/><i/><i/></div>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function DashboardAsociacion() {
         <section className="association-board span-2">
           <div className="association-board-head">
             <div>
-              <span className="eyebrow">Productores</span>
+              <span className="eyebrow">Miembros</span>
               <h2>Miembros con actividad</h2>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/miembros')}>Gestionar <ArrowRight size={14}/></button>

@@ -253,6 +253,16 @@ async function cambiarEstado(req, res, next) {
     if (!TRANSICIONES[neg.estado]?.includes(estado))
       return res.status(400).json({ success:false, message:'Transición de estado inválida' });
     const data = await prisma.negociacion.update({ where:{ id:neg.id }, data:{ estado, precio_acordado:precio_acordado?Number(precio_acordado):undefined, condiciones, fecha_entrega_acordada:fecha_entrega_acordada?new Date(fecha_entrega_acordada):undefined } });
+
+    if (estado === 'rechazada') {
+      const otroId = esProductor ? neg.comprador.usuario_id : neg.productor.usuario_id;
+      await prisma.notificacion.create({ data:{ usuario_id:otroId, tipo:'negociacion_rechazada', titulo:'Negociación rechazada', mensaje:`La negociación #${neg.id} fue rechazada por la contraparte.`, referencia_id:neg.id } }).catch(() => {});
+    }
+    if (estado === 'cancelada') {
+      const otroId = esProductor ? neg.comprador.usuario_id : neg.productor.usuario_id;
+      await prisma.notificacion.create({ data:{ usuario_id:otroId, tipo:'negociacion_cancelada', titulo:'Negociación cancelada', mensaje:`La negociación #${neg.id} fue cancelada por la contraparte.`, referencia_id:neg.id } }).catch(() => {});
+    }
+
     res.json({ success:true, data });
   } catch(e) { next(e); }
 }
@@ -376,6 +386,16 @@ async function calificarContraparte(req, res, next) {
           tipo: 'calificacion_recibida',
           titulo: 'Nueva calificación recibida',
           mensaje: `${neg.productor.usuario.nombre} te ha calificado en la negociación #${neg.id}.`,
+          referencia_id: neg.id,
+        },
+      }).catch(err => console.error('Error creando notificación calificacion_recibida:', err));
+    } else {
+      await prisma.notificacion.create({
+        data: {
+          usuario_id: neg.productor.usuario.id,
+          tipo: 'calificacion_recibida',
+          titulo: 'Nueva calificación recibida',
+          mensaje: `${neg.comprador.usuario.nombre} te ha calificado en la negociación #${neg.id}.`,
           referencia_id: neg.id,
         },
       }).catch(err => console.error('Error creando notificación calificacion_recibida:', err));

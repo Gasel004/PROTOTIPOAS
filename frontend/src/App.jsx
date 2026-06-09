@@ -23,6 +23,8 @@ const Pagos              = lazy(() => import('./pages/Pagos'));
 const Perfil             = lazy(() => import('./pages/Perfil'));
 const MiembrosAsociacion = lazy(() => import('./pages/MiembrosAsociacion'));
 const CatalogoProductos  = lazy(() => import('./pages/CatalogoProductos'));
+const Estadisticas       = lazy(() => import('./pages/EstadisticasAsociacion'));
+const Auditoria          = lazy(() => import('./pages/AuditoriaAsociacion'));
 
 const Loader = () => (
   <div className="loader-theme">
@@ -96,6 +98,16 @@ export default function App() {
           <Route path="/catalogo" element={
             <PrivateRoute roles={['asociacion']}>
               <CatalogoProductos />
+            </PrivateRoute>
+          } />
+          <Route path="/estadisticas" element={
+            <PrivateRoute roles={['asociacion']}>
+              <Estadisticas />
+            </PrivateRoute>
+          } />
+          <Route path="/auditoria" element={
+            <PrivateRoute roles={['asociacion']}>
+              <Auditoria />
             </PrivateRoute>
           } />
 

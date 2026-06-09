@@ -59,4 +59,25 @@ function soloRoles(...roles) {
   };
 }
 
-module.exports = { verificarToken, verificarUsuarioActivo, verificarProductorActivo, soloRoles };
+async function verificarCompradorActivo(req, res, next) {
+  if (req.user.rol !== 'comprador') return next();
+  try {
+    const comprador = await prisma.comprador.findUnique({
+      where: { usuario_id: req.user.id },
+      select: { suspendido_definitivo: true, suspendido_hasta: true },
+    });
+    if (!comprador) return next();
+    if (comprador.suspendido_definitivo) {
+      return res.status(403).json({ success: false, message: 'Tu cuenta de comprador ha sido suspendida definitivamente.' });
+    }
+    if (comprador.suspendido_hasta && new Date(comprador.suspendido_hasta) > new Date()) {
+      return res.status(403).json({
+        success: false,
+        message: `Tu cuenta de comprador está suspendida hasta ${comprador.suspendido_hasta.toISOString().slice(0, 10)}.`,
+      });
+    }
+    next();
+  } catch (e) { next(e); }
+}
+
+module.exports = { verificarToken, verificarUsuarioActivo, verificarProductorActivo, verificarCompradorActivo, soloRoles };
