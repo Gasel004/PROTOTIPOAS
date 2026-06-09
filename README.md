@@ -58,7 +58,7 @@ docker compose exec backend npx prisma db seed
 ### Requisitos
 - Node.js 20 LTS
 - PostgreSQL 16
-- Git
+- Git 
 
 ### Backend
 
@@ -88,10 +88,10 @@ npm run dev               # http://localhost:5173
 |--------|-------------|
 |  Autenticación | Registro y login con JWT por rol |
 |  Publicaciones | Ofertas de venta de productores |
-|  Negociaciones | Canal privado productor ↔ comprador |
+|  Negociaciones | Canal privado productor ↔  comprador |
 |  Mensajería | Chat interno por negociación |
 |  Entregas | Confirmación doble de entregas |
-|  Pagos | Registro y seguimiento de pagos |
+|  Pagos | Registro y seguimiento de pagos | 
 |  Notificaciones | Alertas automáticas del sistema |
 
 ---
@@ -165,4 +165,5 @@ La documentación completa del proyecto se encuentra en `/documentación/`:
 
 ##  Licencia
 
-Proyecto académico — Ingeniería en Sistemas de Información · Proyecto III
+Proyecto académico — Ingeniería en Sistemas de Información · Proyecto Final
+ 
