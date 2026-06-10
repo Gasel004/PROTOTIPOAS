@@ -27,7 +27,7 @@ const NAV_ITEMS = {
   ],
   asociacion: [
     { label:'Inicio',        to:'/dashboard',     icon:<LayoutDashboard size={18}/> },
-    { label:'Productores',   to:'/miembros',      icon:<Users size={18}/> },
+    { label:'Miembros',      to:'/miembros',      icon:<Users size={18}/> },
     { label:'Catálogo',      to:'/catalogo',      icon:<PackageSearch size={18}/> },
     { label:'Publicaciones', to:'/publicaciones', icon:<Store size={18}/> },
     { label:'Estadísticas',  to:'/estadisticas',  icon:<BarChart3 size={18}/> },
@@ -39,7 +39,7 @@ const PAGE_TITLES = {
   '/dashboard':'Inicio','/publicaciones':'Publicaciones',
   '/mis-publicaciones':'Mis Publicaciones','/publicaciones/nueva':'Nueva Publicación',
   '/negociaciones':'Negociaciones','/entregas':'Entregas',
-  '/pagos':'Pagos','/perfil':'Mi Perfil','/miembros':'Productores','/catalogo':'Catálogo',
+  '/pagos':'Pagos','/perfil':'Mi Perfil','/miembros':'Miembros','/catalogo':'Catálogo',
   '/estadisticas':'Estadísticas','/auditoria':'Auditoría',
 };
 
@@ -153,7 +153,7 @@ export default function Layout() {
         <button className="mobile-close" onClick={() => setMobileOpen(false)} title="Cerrar menú" aria-label="Cerrar menú de navegación">
           <X size={20} />
         </button>
-        <div className="sidebar-brand">
+        <div className="sidebar-brand" onClick={() => navigate('/dashboard')} style={{ cursor:'pointer' }}>
           <Leaf size={22} strokeWidth={2} style={{ color:'var(--verde-300)', flexShrink:0 }} aria-hidden="true" />
           <div>
             <h2 style={{ margin:0 }}>La Esperanza</h2>
