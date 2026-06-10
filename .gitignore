@@ -1,8 +1,4 @@
 # ── DOCUMENTACIÓN (Ocultar archivos de Word/PDF) ────────────────
-/Docs/
-*.docx
-*.doc
-*.pdf
 
 # ── OPENCODE ─────────────────────
 .agents/
