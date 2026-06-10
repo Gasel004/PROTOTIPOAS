@@ -1,8 +1,8 @@
 #  Sistema La Esperanza
 
-**Plataforma de Gestión Agrícola** — Proyecto III
+**Plataforma de Gestión Agrícola** 
 
-Sistema web que digitaliza la comercialización agrícola directa entre productores y compradores, con soporte para asociaciones de agricultores como entidades organizadoras.
+Sistema web que digitaliza la comercialización agrícola directa entre productores y compradores, con soporte para asociaciones como entidades organizadoras.
 
 ---
 
@@ -101,6 +101,7 @@ npm run dev               # http://localhost:5173
 - **Productor** — publica ofertas, gestiona negociaciones y entregas
 - **Comprador** — explora publicaciones, inicia y gestiona negociaciones
 - **Asociación** — administra miembros productores y supervisa actividad
+- **Visitante** — visita la página y ve el catálogo de los diferentes productos publicados en la misma
 
 ---
 
@@ -125,16 +126,13 @@ FRONTEND_URL=http://localhost
 ##  Pruebas
 
 ```bash
-# Pruebas unitarias e integración (backend)
+#pruebas unitarias e integración (backend)
 cd backend
 npm test
 
-# Con cobertura
+#de cobertura
 npm test -- --coverage
 
-# Pruebas de API
-# Importar colección Postman desde /docs/postman/
-```
 
 ---
 
@@ -159,7 +157,7 @@ La documentación completa del proyecto se encuentra en `/documentación/`:
 
 ##  Versión actual
 
-**v1.0.0** — Release inicial · Mayo 2026
+**v1.1.1** — Release inicial · Mayo 2026
 
 ---
 
